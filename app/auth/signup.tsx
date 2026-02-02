@@ -1,20 +1,20 @@
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
 import {
-    KeyboardAvoidingView,
-    Platform,
-    ScrollView,
-    StyleSheet,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    View,
+  KeyboardAvoidingView,
+  Platform,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
 } from 'react-native';
 
 export default function SignupScreen() {
   const router = useRouter();
   const [name, setName] = useState('');
-  const [email, setEmail] = useState('');
+  // const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
 
@@ -24,7 +24,7 @@ export default function SignupScreen() {
       return;
     }
     // 회원가입 로직 구현
-    console.log('회원가입:', { name, email, password });
+    console.log('회원가입:', { name,  password });
     // 회원가입 성공 시 로그인 화면으로 이동
     router.back();
   };
@@ -51,7 +51,7 @@ export default function SignupScreen() {
               onChangeText={setName}
             />
 
-            <TextInput
+            {/* <TextInput
               style={styles.input}
               placeholder="이메일"
               placeholderTextColor="#999"
@@ -59,7 +59,7 @@ export default function SignupScreen() {
               onChangeText={setEmail}
               keyboardType="email-address"
               autoCapitalize="none"
-            />
+            /> */}
 
             <TextInput
               style={styles.input}
