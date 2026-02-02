@@ -1,30 +1,30 @@
 import { StyleSheet, Text, View } from 'react-native';
 
-
-
 export default function HomeScreen() {
   return (
-    <View>
-      <Text>여기가 메인 진입점</Text>
+    <View style={styles.container}>
+      <Text style={styles.title}>기도 앱 홈</Text>
+      <Text style={styles.subtitle}>로그인에 성공했습니다!</Text>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  titleContainer: {
-    flexDirection: 'row',
+  container: {
+    flex: 1,
+    backgroundColor: '#FFFFFF',
     alignItems: 'center',
-    gap: 8,
+    justifyContent: 'center',
+    padding: 20,
   },
-  stepContainer: {
-    gap: 8,
-    marginBottom: 8,
+  title: {
+    fontSize: 28,
+    fontWeight: 'bold',
+    color: '#000000',
+    marginBottom: 12,
   },
-  reactLogo: {
-    height: 178,
-    width: 290,
-    bottom: 0,
-    left: 0,
-    position: 'absolute',
+  subtitle: {
+    fontSize: 16,
+    color: '#666666',
   },
 });
