@@ -7,7 +7,6 @@ const API_BASE_URL = process.env.EXPO_PUBLIC_API_URL;
 
 const ACCESS_TOKEN_KEY  = 'access_token';
 const REFRESH_TOKEN_KEY = 'refresh_token';
-const USER_ROLE_KEY     = 'user_role'; 
 
 export const api = axios.create({
   baseURL: API_BASE_URL,
@@ -15,9 +14,8 @@ export const api = axios.create({
   headers: { 'Content-Type': 'application/json' },
 });
 
-// ==================== Token / Role 관리 ====================
+// ==================== Token 관리 ====================
 
-// 토큰 저장 (AsyncStorage 대신 SecureStore 사용)
 const isWeb = Platform.OS === 'web';
 
 export const saveAccessToken = async (token: string) => {
@@ -37,34 +35,29 @@ export const saveRefreshToken = async (token: string) => {
 };
 
 export const getAccessToken = async () => {
-  return isWeb ? AsyncStorage.getItem(ACCESS_TOKEN_KEY) : SecureStore.getItemAsync(ACCESS_TOKEN_KEY);
+  return isWeb
+    ? AsyncStorage.getItem(ACCESS_TOKEN_KEY)
+    : SecureStore.getItemAsync(ACCESS_TOKEN_KEY);
 };
 
 export const getRefreshToken = async () => {
-  return isWeb ? AsyncStorage.getItem(REFRESH_TOKEN_KEY) : SecureStore.getItemAsync(REFRESH_TOKEN_KEY);
+  return isWeb
+    ? AsyncStorage.getItem(REFRESH_TOKEN_KEY)
+    : SecureStore.getItemAsync(REFRESH_TOKEN_KEY);
 };
 
 export const clearTokens = async () => {
-  const promises = [
-    AsyncStorage.removeItem(USER_ROLE_KEY)
-  ];
-
   if (isWeb) {
-    promises.push(AsyncStorage.removeItem(ACCESS_TOKEN_KEY));
-    promises.push(AsyncStorage.removeItem(REFRESH_TOKEN_KEY));
+    await Promise.all([
+      AsyncStorage.removeItem(ACCESS_TOKEN_KEY),
+      AsyncStorage.removeItem(REFRESH_TOKEN_KEY),
+    ]);
   } else {
-    promises.push(SecureStore.deleteItemAsync(ACCESS_TOKEN_KEY));
-    promises.push(SecureStore.deleteItemAsync(REFRESH_TOKEN_KEY));
+    await Promise.all([
+      SecureStore.deleteItemAsync(ACCESS_TOKEN_KEY),
+      SecureStore.deleteItemAsync(REFRESH_TOKEN_KEY),
+    ]);
   }
-
-  await Promise.all(promises);
-};
-export const saveUserRole = async (role: string) => {
-  await AsyncStorage.setItem(USER_ROLE_KEY, role);
-};
-
-export const getSavedUserRole = async (): Promise<string | null> => {
-  return AsyncStorage.getItem(USER_ROLE_KEY);
 };
 
 // ==================== 요청 인터셉터 ====================
@@ -154,10 +147,8 @@ export const login = async (loginID: string, password: string): Promise<LoginRes
   const data = response.data;
   console.log('로그인 성공:', data.username);
 
-  // accessToken, refreshToken, role 모두 저장
   if (data.token)        await saveAccessToken(data.token);
   if (data.refreshToken) await saveRefreshToken(data.refreshToken);
-  if (data.role)         await saveUserRole(data.role);
 
   return data;
 };
@@ -182,11 +173,19 @@ export const signup = async (data: SignupRequest): Promise<SignupResponse> => {
   return response.data;
 };
 
-
 export const logout = async (): Promise<void> => {
-  api.post('/auth/logout').catch((e) => {
-    console.log('서버 logout 무시:', e?.response?.status);
-  });
+  // 토큰 삭제 전에 서버 요청 먼저 완료 (403 방지)
+  try {
+    await Promise.race([
+      api.post('/auth/logout'),
+      new Promise((_, reject) =>
+        setTimeout(() => reject(new Error('logout timeout')), 3000)
+      ),
+    ]);
+  } catch (e) {
+    console.log('서버 logout 무시:', (e as any)?.response?.status);
+  }
+
   await clearTokens();
 };
 
@@ -196,23 +195,20 @@ export interface UserInfo {
   role: string;
 }
 
-
 export const getUserInfo = async (): Promise<UserInfo> => {
   const response = await api.get<Partial<UserInfo>>('/auth/me');
   const data = response.data;
-  
+
   console.log('getUserInfo 응답:', JSON.stringify(data));
 
-  if (!data.loginID || !data.name) {
+  if (!data.loginID || !data.name || !data.role) {
     throw new Error('서버로부터 사용자 정보가 완전하지 않습니다.');
   }
 
-  const role = data.role || (await getSavedUserRole()) || '신도';
-
   return {
-    loginID: data.loginID, 
+    loginID: data.loginID,
     name: data.name,
-    role: role,
+    role: data.role,
   };
 };
 
