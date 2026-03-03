@@ -1,25 +1,45 @@
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
 import {
-    KeyboardAvoidingView,
-    Platform,
-    StyleSheet,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    View,
+  ActivityIndicator,
+  Alert,
+  KeyboardAvoidingView,
+  Platform,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  useWindowDimensions,
+  View,
 } from 'react-native';
+import { useAuth } from '../../contexts/AuthContext';
 
 export default function LoginScreen() {
   const router = useRouter();
-  const [email, setEmail] = useState('');
+  const { login, isLoading } = useAuth();
+  const { width, height } = useWindowDimensions();
+
+  const [loginID, setLoginID] = useState('');
   const [password, setPassword] = useState('');
 
-  const handleLogin = () => {
-    // 로그인 로직 구현
-    console.log('로그인:', { email, password });
-    // 로그인 성공 시 메인 화면으로 이동
-    router.replace('/(tabs)');
+  // 반응형: 최대 너비 제한 (태블릿 대응)
+  const formWidth = Math.min(width * 0.9, 440);
+
+  const handleLogin = async () => {
+    if (!loginID.trim()) {
+      Alert.alert('오류', '아이디를 입력해주세요.');
+      return;
+    }
+    if (!password.trim()) {
+      Alert.alert('오류', '비밀번호를 입력해주세요.');
+      return;
+    }
+    try {
+      await login(loginID, password);
+    } catch (error: any) {
+      Alert.alert('로그인 실패', error.message || '아이디 또는 비밀번호가 올바르지 않습니다.');
+    }
   };
 
   const goToSignup = () => {
@@ -30,42 +50,58 @@ export default function LoginScreen() {
     <KeyboardAvoidingView
       style={styles.container}
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
-      <View style={styles.content}>
-        <Text style={styles.title}>로그인</Text>
-        <Text style={styles.subtitle}>계정에 로그인하세요</Text>
+      <ScrollView
+        contentContainerStyle={[styles.scrollContent, { minHeight: height }]}
+        showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled">
+        {/* 화면 중앙 정렬 래퍼 */}
+        <View style={styles.centerWrapper}>
+          <View style={[styles.card, { width: formWidth }]}>
+            <Text style={styles.title}>로그인</Text>
+            <Text style={styles.subtitle}>계정에 로그인하세요</Text>
 
-        <View style={styles.form}>
-          <TextInput
-            style={styles.input}
-            placeholder="이메일"
-            placeholderTextColor="#999"
-            value={email}
-            onChangeText={setEmail}
-            keyboardType="email-address"
-            autoCapitalize="none"
-          />
+            <View style={styles.form}>
+              <TextInput
+                style={styles.input}
+                placeholder="아이디"
+                placeholderTextColor="#999"
+                value={loginID}
+                onChangeText={setLoginID}
+                autoCapitalize="none"
+                editable={!isLoading}
+              />
 
-          <TextInput
-            style={styles.input}
-            placeholder="비밀번호"
-            placeholderTextColor="#999"
-            value={password}
-            onChangeText={setPassword}
-            secureTextEntry
-          />
+              <TextInput
+                style={styles.input}
+                placeholder="비밀번호"
+                placeholderTextColor="#999"
+                value={password}
+                onChangeText={setPassword}
+                secureTextEntry
+                editable={!isLoading}
+              />
 
-          <TouchableOpacity style={styles.loginButton} onPress={handleLogin}>
-            <Text style={styles.loginButtonText}>로그인</Text>
-          </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.loginButton, isLoading && styles.buttonDisabled]}
+                onPress={handleLogin}
+                disabled={isLoading}>
+                {isLoading ? (
+                  <ActivityIndicator color="#FFFFFF" />
+                ) : (
+                  <Text style={styles.loginButtonText}>로그인</Text>
+                )}
+              </TouchableOpacity>
 
-          <View style={styles.signupContainer}>
-            <Text style={styles.signupText}>계정이 없으신가요? </Text>
-            <TouchableOpacity onPress={goToSignup}>
-              <Text style={styles.signupLink}>회원가입</Text>
-            </TouchableOpacity>
+              <View style={styles.linkRow}>
+                <Text style={styles.linkText}>계정이 없으신가요? </Text>
+                <TouchableOpacity onPress={goToSignup} disabled={isLoading}>
+                  <Text style={styles.linkBold}>회원가입</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
           </View>
         </View>
-      </View>
+      </ScrollView>
     </KeyboardAvoidingView>
   );
 }
@@ -75,10 +111,18 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#FFFFFF',
   },
-  content: {
-    flex: 1,
-    paddingHorizontal: 30,
-    paddingTop: 80,
+  scrollContent: {
+    flexGrow: 1,
+    justifyContent: 'center', 
+    alignItems: 'center',     
+  },
+  centerWrapper: {
+    width: '100%',
+    alignItems: 'center',
+    paddingVertical: 48,
+    paddingHorizontal: 20,
+  },
+  card: {
   },
   title: {
     fontSize: 32,
@@ -110,21 +154,24 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginTop: 8,
   },
+  buttonDisabled: {
+    backgroundColor: '#999999',
+  },
   loginButtonText: {
     color: '#FFFFFF',
     fontSize: 16,
     fontWeight: '600',
   },
-  signupContainer: {
+  linkRow: {
     flexDirection: 'row',
     justifyContent: 'center',
-    marginTop: 16,
+    marginTop: 8,
   },
-  signupText: {
+  linkText: {
     fontSize: 14,
     color: '#666666',
   },
-  signupLink: {
+  linkBold: {
     fontSize: 14,
     color: '#000000',
     fontWeight: '600',
