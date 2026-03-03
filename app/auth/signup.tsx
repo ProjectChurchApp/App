@@ -2,6 +2,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
 import {
+  Alert,
   KeyboardAvoidingView,
   Platform,
   ScrollView,
@@ -29,6 +30,22 @@ export default function SignupScreen() {
   const formWidth = Math.min(width * 0.9, 440);
 
   const handleSignup = async () => {
+    const showAlert = (message: string) => {
+    if (Platform.OS === 'web') {
+      alert(message);
+    } else {
+      Alert.alert('알림', message); // 플랫폼 대응 UI
+    }
+  };
+
+  if (!loginID.trim()) {
+    showAlert('아이디를 입력해주세요.');
+    return;
+  }
+  if (!name.trim()) {
+    showAlert('이름을 입력해주세요.');
+    return;
+  }
     if (!loginID.trim()) { alert('아이디를 입력해주세요.'); return; }
     if (!name.trim()) { alert('이름을 입력해주세요.'); return; }
     if (password !== confirmPassword) { alert('비밀번호가 일치하지 않습니다.'); return; }

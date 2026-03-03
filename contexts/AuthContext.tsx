@@ -98,7 +98,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   // signup은 isLoading 직접 관리 안 함 → login에 위임
-  const signup = async (loginID: string, password: string, name: string, role: string) => {
+  const signup = async (loginID: string, password: string, name: string, role:'목사' | '신도') => {
     try {
       const response = await api.signup({ loginID, password, name, role });
       if (!response.success) {
@@ -115,22 +115,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 const logout = async () => {
   setIsLoading(true);
   try {
-    await api.logout(); // 위에서 수정한 api.logout 호출
+    await api.logout(); 
   } catch (error) {
     console.error('Logout API error:', error);
   } finally {
     await AsyncStorage.setItem('wasLoggedOut', 'true').catch(() => {});
     
-    // 이 상태 변경이 일어나면 useEffect가 자동으로 /auth/login으로 보내줄 것입니다.
+    // 상태만 변경하면 상단의 useEffect가 세그먼트를 감시하여 리다이렉트합니다.
     setUser(null);
     setHasLoggedInBefore(true);
     setIsLoading(false);
-    
-    // 만약 useEffect가 작동하지 않는 경우를 대비한 수동 이동은 
-    // 모든 상태가 반영된 후 마지막에 수행합니다.
-    setTimeout(() => {
-       router.replace('/auth/login');
-    }, 100);
   }
 };
 

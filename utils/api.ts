@@ -1,7 +1,8 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import axios, { AxiosError, InternalAxiosRequestConfig } from 'axios';
+import * as SecureStore from 'expo-secure-store';
 
-const API_BASE_URL = 'http://168.107.57.64/api';
+const API_BASE_URL = process.env.EXPO_PUBLIC_API_URL;
 
 const ACCESS_TOKEN_KEY  = 'access_token';
 const REFRESH_TOKEN_KEY = 'refresh_token';
@@ -15,34 +16,39 @@ export const api = axios.create({
 
 // ==================== Token / Role 관리 ====================
 
+// 토큰 저장 (AsyncStorage 대신 SecureStore 사용)
 export const saveAccessToken = async (token: string) => {
-  await AsyncStorage.setItem(ACCESS_TOKEN_KEY, token);
+  await SecureStore.setItemAsync(ACCESS_TOKEN_KEY, token); // 보안 강화
 };
 
 export const saveRefreshToken = async (token: string) => {
-  await AsyncStorage.setItem(REFRESH_TOKEN_KEY, token);
+  await SecureStore.setItemAsync(REFRESH_TOKEN_KEY, token);
 };
 
-export const getAccessToken = async (): Promise<string | null> => {
-  return AsyncStorage.getItem(ACCESS_TOKEN_KEY);
-};
+// 토큰 조회
+export const getAccessToken = async () => SecureStore.getItemAsync(ACCESS_TOKEN_KEY);
+export const getRefreshToken = async () => SecureStore.getItemAsync(REFRESH_TOKEN_KEY);
 
-export const getRefreshToken = async (): Promise<string | null> => {
-  return AsyncStorage.getItem(REFRESH_TOKEN_KEY);
+// 토큰 삭제
+export const clearTokens = async () => {
+  try {
+    // Promise.all은 배열 안의 모든 비동기 작업이 완료될 때까지 기다립니다.
+    await Promise.all([
+      SecureStore.deleteItemAsync(ACCESS_TOKEN_KEY), // 보안 저장소에서 엑세스 토큰 삭제
+      SecureStore.deleteItemAsync(REFRESH_TOKEN_KEY), // 보안 저장소에서 리프레시 토큰 삭제
+      AsyncStorage.removeItem(USER_ROLE_KEY)         // 일반 저장소에서 역할(role) 삭제
+    ]);
+    console.log('모든 인증 데이터가 안전하게 삭제되었습니다.');
+  } catch (error) {
+    console.error('토큰 삭제 중 오류 발생:', error);
+  }
 };
-
-// ✅ role 저장/조회
 export const saveUserRole = async (role: string) => {
   await AsyncStorage.setItem(USER_ROLE_KEY, role);
 };
 
 export const getSavedUserRole = async (): Promise<string | null> => {
   return AsyncStorage.getItem(USER_ROLE_KEY);
-};
-
-export const clearTokens = async () => {
-  await AsyncStorage.multiRemove([ACCESS_TOKEN_KEY, REFRESH_TOKEN_KEY, USER_ROLE_KEY]);
-  console.log('모든 토큰/role 삭제 완료');
 };
 
 // ==================== 요청 인터셉터 ====================
@@ -130,9 +136,9 @@ export interface LoginResponse {
 export const login = async (loginID: string, password: string): Promise<LoginResponse> => {
   const response = await api.post<LoginResponse>('/auth/login', { loginID, password });
   const data = response.data;
-  console.log('로그인 응답:', JSON.stringify(data));
+  console.log('로그인 성공:', data.username);
 
-  // ✅ accessToken, refreshToken, role 모두 저장
+  // accessToken, refreshToken, role 모두 저장
   if (data.token)        await saveAccessToken(data.token);
   if (data.refreshToken) await saveRefreshToken(data.refreshToken);
   if (data.role)         await saveUserRole(data.role);
@@ -178,14 +184,19 @@ export interface UserInfo {
 export const getUserInfo = async (): Promise<UserInfo> => {
   const response = await api.get<Partial<UserInfo>>('/auth/me');
   const data = response.data;
+  
   console.log('getUserInfo 응답:', JSON.stringify(data));
+
+  if (!data.loginID || !data.name) {
+    throw new Error('서버로부터 사용자 정보가 완전하지 않습니다.');
+  }
 
   const role = data.role || (await getSavedUserRole()) || '신도';
 
   return {
-    loginID: data.loginID!,
-    name: data.name!,
-    role,
+    loginID: data.loginID, 
+    name: data.name,
+    role: role,
   };
 };
 

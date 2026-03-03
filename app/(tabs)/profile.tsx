@@ -18,15 +18,7 @@ export default function ProfileScreen() {
   console.log("로그아웃 실행 시도");
 
   const logoutConfirm = async () => {
-    try {
       await logout();
-    } catch {
-      if (Platform.OS === 'web') {
-        alert('로그아웃 중 오류가 발생했습니다.');
-      } else {
-        Alert.alert('오류', '로그아웃 중 오류가 발생했습니다.');
-      }
-    }
   };
 
   if (Platform.OS === 'web') {
