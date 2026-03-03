@@ -80,22 +80,29 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   const login = async (loginID: string, password: string) => {
-    try {
-      setIsLoading(true);
-      const response = await api.login(loginID, password);
-      if (!response.success) throw new Error(response.message || '로그인 실패');
+  try {
+    setIsLoading(true);
+    const response = await api.login(loginID, password);
+    
+    // 1. API 응답 성공 여부 확인
+    if (!response.success) throw new Error(response.message || '로그인 실패');
 
-      await AsyncStorage.removeItem('wasLoggedOut');
-      setHasLoggedInBefore(false);
-
-      const userInfo = await api.getUserInfo();
-      setUser(userInfo);
-    } catch (error: any) {
-      throw new Error(error.response?.data?.message || error.message || '로그인에 실패했습니다.');
-    } finally {
-      setIsLoading(false);
-    }
-  };
+    // 2. 저장소 및 상태 업데이트
+    await AsyncStorage.removeItem('wasLoggedOut');
+    
+    // 3. 사용자 정보 가져오기 (이 과정에서 에러가 나면 setUser가 안 됨)
+    const userInfo = await api.getUserInfo();
+    
+    // 4. 상태 업데이트 (이 순서가 중요합니다)
+    setHasLoggedInBefore(false); 
+    setUser(userInfo); // user가 null이 아니게 되면서 useEffect가 실행됨
+  } catch (error: any) {
+    console.error("Login process error:", error); // 에러 로그 확인 필수
+    throw new Error(error.response?.data?.message || error.message || '로그인에 실패했습니다.');
+  } finally {
+    setIsLoading(false); // 마지막에 반드시 false로 바꿔줘야 useEffect의 return문을 통과함
+  }
+};
 
   // signup은 isLoading 직접 관리 안 함 → login에 위임
   const signup = async (loginID: string, password: string, name: string, role:'목사' | '신도') => {

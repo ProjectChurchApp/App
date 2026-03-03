@@ -1,12 +1,13 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import axios, { AxiosError, InternalAxiosRequestConfig } from 'axios';
 import * as SecureStore from 'expo-secure-store';
+import { Platform } from 'react-native';
 
 const API_BASE_URL = process.env.EXPO_PUBLIC_API_URL;
 
 const ACCESS_TOKEN_KEY  = 'access_token';
 const REFRESH_TOKEN_KEY = 'refresh_token';
-const USER_ROLE_KEY     = 'user_role'; // ✅ role 별도 저장
+const USER_ROLE_KEY     = 'user_role'; 
 
 export const api = axios.create({
   baseURL: API_BASE_URL,
@@ -17,31 +18,46 @@ export const api = axios.create({
 // ==================== Token / Role 관리 ====================
 
 // 토큰 저장 (AsyncStorage 대신 SecureStore 사용)
+const isWeb = Platform.OS === 'web';
+
 export const saveAccessToken = async (token: string) => {
-  await SecureStore.setItemAsync(ACCESS_TOKEN_KEY, token); // 보안 강화
+  if (isWeb) {
+    await AsyncStorage.setItem(ACCESS_TOKEN_KEY, token);
+  } else {
+    await SecureStore.setItemAsync(ACCESS_TOKEN_KEY, token);
+  }
 };
 
 export const saveRefreshToken = async (token: string) => {
-  await SecureStore.setItemAsync(REFRESH_TOKEN_KEY, token);
+  if (isWeb) {
+    await AsyncStorage.setItem(REFRESH_TOKEN_KEY, token);
+  } else {
+    await SecureStore.setItemAsync(REFRESH_TOKEN_KEY, token);
+  }
 };
 
-// 토큰 조회
-export const getAccessToken = async () => SecureStore.getItemAsync(ACCESS_TOKEN_KEY);
-export const getRefreshToken = async () => SecureStore.getItemAsync(REFRESH_TOKEN_KEY);
+export const getAccessToken = async () => {
+  return isWeb ? AsyncStorage.getItem(ACCESS_TOKEN_KEY) : SecureStore.getItemAsync(ACCESS_TOKEN_KEY);
+};
 
-// 토큰 삭제
+export const getRefreshToken = async () => {
+  return isWeb ? AsyncStorage.getItem(REFRESH_TOKEN_KEY) : SecureStore.getItemAsync(REFRESH_TOKEN_KEY);
+};
+
 export const clearTokens = async () => {
-  try {
-    // Promise.all은 배열 안의 모든 비동기 작업이 완료될 때까지 기다립니다.
-    await Promise.all([
-      SecureStore.deleteItemAsync(ACCESS_TOKEN_KEY), // 보안 저장소에서 엑세스 토큰 삭제
-      SecureStore.deleteItemAsync(REFRESH_TOKEN_KEY), // 보안 저장소에서 리프레시 토큰 삭제
-      AsyncStorage.removeItem(USER_ROLE_KEY)         // 일반 저장소에서 역할(role) 삭제
-    ]);
-    console.log('모든 인증 데이터가 안전하게 삭제되었습니다.');
-  } catch (error) {
-    console.error('토큰 삭제 중 오류 발생:', error);
+  const promises = [
+    AsyncStorage.removeItem(USER_ROLE_KEY)
+  ];
+
+  if (isWeb) {
+    promises.push(AsyncStorage.removeItem(ACCESS_TOKEN_KEY));
+    promises.push(AsyncStorage.removeItem(REFRESH_TOKEN_KEY));
+  } else {
+    promises.push(SecureStore.deleteItemAsync(ACCESS_TOKEN_KEY));
+    promises.push(SecureStore.deleteItemAsync(REFRESH_TOKEN_KEY));
   }
+
+  await Promise.all(promises);
 };
 export const saveUserRole = async (role: string) => {
   await AsyncStorage.setItem(USER_ROLE_KEY, role);
