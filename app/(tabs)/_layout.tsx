@@ -1,6 +1,7 @@
+// app/(tabs)/_layout.tsx
+
 import { IconSymbol } from '@/components/ui/icon-symbol';
 import { Tabs } from 'expo-router';
-import React from 'react';
 import { Platform } from 'react-native';
 
 export default function TabLayout() {
@@ -10,12 +11,11 @@ export default function TabLayout() {
         tabBarActiveTintColor: '#000000',
         headerShown: false,
         tabBarStyle: Platform.select({
-          ios: {
-            position: 'absolute',
-          },
+          ios: { position: 'absolute' },
           default: {},
         }),
-      }}>
+      }}
+    >
       <Tabs.Screen
         name="index"
         options={{
@@ -23,11 +23,21 @@ export default function TabLayout() {
           tabBarIcon: ({ color }) => <IconSymbol name="house.fill" color={color} size={28} />,
         }}
       />
+
+      {/* board 폴더 전체를 탭으로 등록 */}
       <Tabs.Screen
-        name="explore"
+        name="board"
         options={{
-          title: '탐색',
-          tabBarIcon: ({ color }) => <IconSymbol name="paperplane.fill" color={color} size={28} />,
+          title: '게시판',
+          tabBarIcon: ({ color }) => <IconSymbol name="list.bullet" color={color} size={28} />,
+        }}
+      />
+
+      <Tabs.Screen
+        name="profile"
+        options={{
+          title: '프로필',
+          tabBarIcon: ({ color }) => <IconSymbol name="person.fill" color={color} size={28} />,
         }}
       />
     </Tabs>
