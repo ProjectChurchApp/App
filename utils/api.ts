@@ -1,9 +1,11 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import axios, { AxiosError, InternalAxiosRequestConfig } from 'axios';
+import * as Device from 'expo-device';
+import * as Notifications from 'expo-notifications';
 import * as SecureStore from 'expo-secure-store';
 import { Platform } from 'react-native';
 
-const API_BASE_URL = process.env.EXPO_PUBLIC_API_URL;
+export const API_BASE_URL = process.env.EXPO_PUBLIC_API_URL;
 
 const ACCESS_TOKEN_KEY  = 'access_token';
 const REFRESH_TOKEN_KEY = 'refresh_token';
@@ -216,3 +218,52 @@ export const testAuth = async (): Promise<any> => {
   const response = await api.get('/auth/test');
   return response.data;
 };
+
+// ==================== 푸시 알림 ====================
+
+export async function registerPushToken() {
+  console.log('registerPushToken 호출됨');
+  console.log('isDevice:', Device.isDevice);
+  console.log('isWeb:', isWeb);
+  // 웹 또는 실기기가 아니면 무시
+  if (isWeb || !Device.isDevice) {
+    console.log('푸시 알림: 실기기에서만 사용 가능');
+    return;
+  }
+
+  // 알림 권한 요청
+  const { status: existingStatus } = await Notifications.getPermissionsAsync();
+  let finalStatus = existingStatus;
+
+  if (existingStatus !== 'granted') {
+    const { status } = await Notifications.requestPermissionsAsync();
+    finalStatus = status;
+  }
+
+  if (finalStatus !== 'granted') {
+    console.log('푸시 알림 권한 거부됨');
+    return;
+  }
+
+  // Android 알림 채널 설정
+  if (Platform.OS === 'android') {
+    await Notifications.setNotificationChannelAsync('default', {
+      name: 'default',
+      importance: Notifications.AndroidImportance.MAX,
+      sound: 'default',
+    });
+  }
+
+  // Expo 푸시 토큰 발급
+  const tokenData = await Notifications.getExpoPushTokenAsync({
+    projectId: process.env.EXPO_PUBLIC_PROJECT_ID,
+  });
+
+  // 백엔드에 토큰 저장
+  try {
+    await api.post('/notification/token', { token: tokenData.data });
+    console.log('푸시 토큰 저장 완료:', tokenData.data);
+  } catch (e) {
+    console.error('푸시 토큰 저장 실패:', e);
+  }
+}

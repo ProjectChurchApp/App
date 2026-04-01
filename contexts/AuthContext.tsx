@@ -1,9 +1,9 @@
 // contexts/AuthContext.tsx
-
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useRouter, useSegments } from 'expo-router';
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import * as api from '../utils/api';
+import { registerPushToken } from '../utils/api';
 
 interface User {
   loginID: string;
@@ -71,6 +71,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
       const userInfo = await api.getUserInfo();
       setUser(userInfo);
+      console.log('registerPushToken 호출 전');
+      await registerPushToken(); // ← 추가
+      console.log('registerPushToken 호출 후');
     } catch (error) {
       await api.clearTokens();
       setUser(null);
@@ -96,6 +99,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     // 4. 상태 업데이트 (이 순서가 중요합니다)
     setHasLoggedInBefore(false); 
     setUser(userInfo); // user가 null이 아니게 되면서 useEffect가 실행됨
+    console.log('registerPushToken 호출 전');
+    await registerPushToken(); // ← 추가
+    console.log('registerPushToken 호출 후');
   } catch (error: any) {
     console.error("Login process error:", error); // 에러 로그 확인 필수
     throw new Error(error.response?.data?.message || error.message || '로그인에 실패했습니다.');

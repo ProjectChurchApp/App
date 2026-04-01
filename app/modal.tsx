@@ -1,3 +1,12 @@
+import { View } from 'react-native';
+
+export default function ModalScreen() {
+  return <View />;
+}
+
+// 나중에 밑에 하단 바 만들때 사용 여기는 최상위 루트라 일단 주석처리
+// import { Link } from 'expo-router';
+// ...기존 주석들...
 // import { Link } from 'expo-router';
 // import { StyleSheet } from 'react-native';
 
