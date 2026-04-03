@@ -1,6 +1,5 @@
 // app/(tabs)/board/index.tsx
-
-import { useRouter } from 'expo-router';
+import { useFocusEffect, useRouter } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
@@ -137,11 +136,13 @@ export default function BoardScreen() {
     }
   }, []);
 
-  useEffect(() => {
-    fetchBoards();
-  }, [fetchBoards]);
+  useFocusEffect(
+    useCallback(() => {
+      fetchBoards();
+    }, [fetchBoards])
+  );
 
-  // 필터/검색 바뀌면 페이지 초기화
+  // 필터/검색 바뀌면 페이지 초기화 
   useEffect(() => {
     setCurrentPage(1);
   }, [filterStatus, searchKeyword, searchType]);
