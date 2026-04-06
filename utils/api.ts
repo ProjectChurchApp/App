@@ -5,8 +5,8 @@ import * as Notifications from 'expo-notifications';
 import * as SecureStore from 'expo-secure-store';
 import { Platform } from 'react-native';
 
-export const API_BASE_URL = process.env.EXPO_PUBLIC_API_URL;
-
+// export const API_BASE_URL = process.env.EXPO_PUBLIC_API_URL;
+export const API_BASE_URL = "http://168.107.57.64/api";
 const ACCESS_TOKEN_KEY  = 'access_token';
 const REFRESH_TOKEN_KEY = 'refresh_token';
 

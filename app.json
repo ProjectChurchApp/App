@@ -25,7 +25,8 @@
       "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": false,
       "package": "com.geonuk.churchapp",
-      "googleServicesFile": "./google-services.json",  // ← 추가
+      "googleServicesFile": "./google-services.json", 
+      "usesCleartextTraffic": true
     },
     "web": {
       "output": "static",
@@ -46,7 +47,8 @@
         }
       ],
       "expo-secure-store",
-      "expo-notifications"
+      "expo-notifications",
+       "./plugins/withAndroidCleartextTraffic"
     ],
     "experiments": {
       "typedRoutes": true,
