@@ -1,10 +1,10 @@
 {
   "expo": {
-    "name": "ChurchApp",
+    "name": "하트교회",
     "slug": "ChurchApp",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/images/icon.png",
+    "icon": "./assets/images/hearticon.png",
     "scheme": "churchapp",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
@@ -30,7 +30,7 @@
     },
     "web": {
       "output": "static",
-      "favicon": "./assets/images/favicon.png"
+      "favicon": "./assets/images/hearticon.png"
     },
     "plugins": [
       "expo-router",

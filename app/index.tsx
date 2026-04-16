@@ -1,5 +1,5 @@
 import { useRouter } from 'expo-router';
-import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Image, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
 export default function SplashScreen() {
   const router = useRouter();
@@ -11,8 +11,13 @@ export default function SplashScreen() {
   return (
     <View style={styles.container}>
       <View style={styles.content}>
-        <Text style={styles.title}>기도 앱</Text>
-        <Text style={styles.subtitle}>Splash</Text>
+        <Image 
+          source={require('../assets/images/hearticon.png')} 
+          style={styles.logo}
+          resizeMode="contain"
+        />
+        <Text style={styles.title}>하트교회</Text>
+        <Text style={styles.subtitle}>HEART CHURCH</Text>
       </View>
 
       <TouchableOpacity style={styles.button} onPress={handleStart}>
@@ -34,6 +39,12 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  // 3. 로고 스타일을 추가합니다.
+  logo: {
+    width: 200,      // 원하는 가로 크기
+    height: 200,     // 원하는 세로 크기
+    marginBottom: 20, // 이미지와 텍스트 사이 간격
   },
   title: {
     fontSize: 32,
