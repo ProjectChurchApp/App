@@ -5,8 +5,7 @@ import * as Notifications from 'expo-notifications';
 import * as SecureStore from 'expo-secure-store';
 import { Platform } from 'react-native';
 
-// export const API_BASE_URL = process.env.EXPO_PUBLIC_API_URL;
-export const API_BASE_URL = "http://168.107.57.64/api";
+export const API_BASE_URL = process.env.EXPO_PUBLIC_API_URL;
 const ACCESS_TOKEN_KEY  = 'access_token';
 const REFRESH_TOKEN_KEY = 'refresh_token';
 
@@ -225,13 +224,12 @@ export async function registerPushToken() {
   console.log('registerPushToken 호출됨');
   console.log('isDevice:', Device.isDevice);
   console.log('isWeb:', isWeb);
-  // 웹 또는 실기기가 아니면 무시
+
   if (isWeb || !Device.isDevice) {
     console.log('푸시 알림: 실기기에서만 사용 가능');
     return;
   }
 
-  // 알림 권한 요청
   const { status: existingStatus } = await Notifications.getPermissionsAsync();
   let finalStatus = existingStatus;
 
@@ -245,7 +243,6 @@ export async function registerPushToken() {
     return;
   }
 
-  // Android 알림 채널 설정
   if (Platform.OS === 'android') {
     await Notifications.setNotificationChannelAsync('default', {
       name: 'default',
@@ -254,16 +251,29 @@ export async function registerPushToken() {
     });
   }
 
-  // Expo 푸시 토큰 발급
   const tokenData = await Notifications.getExpoPushTokenAsync({
     projectId: process.env.EXPO_PUBLIC_PROJECT_ID,
   });
 
-  // 백엔드에 토큰 저장
   try {
     await api.post('/notification/token', { token: tokenData.data });
     console.log('푸시 토큰 저장 완료:', tokenData.data);
   } catch (e) {
     console.error('푸시 토큰 저장 실패:', e);
+  }
+}
+
+// 로그아웃 시 푸시 토큰 삭제
+export async function unregisterPushToken() {
+  if (isWeb || !Device.isDevice) return;
+
+  try {
+    const tokenData = await Notifications.getExpoPushTokenAsync({
+      projectId: process.env.EXPO_PUBLIC_PROJECT_ID,
+    });
+    await api.delete('/notification/token', { data: { token: tokenData.data } });
+    console.log('푸시 토큰 삭제 완료');
+  } catch (e) {
+    console.error('푸시 토큰 삭제 실패:', e);
   }
 }

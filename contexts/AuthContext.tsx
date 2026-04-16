@@ -3,7 +3,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useRouter, useSegments } from 'expo-router';
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import * as api from '../utils/api';
-import { registerPushToken } from '../utils/api';
+import { registerPushToken, unregisterPushToken } from '../utils/api';
 
 interface User {
   loginID: string;
@@ -128,6 +128,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 const logout = async () => {
   setIsLoading(true);
   try {
+    await unregisterPushToken(); // ← 추가
     await api.logout(); 
   } catch (error) {
     console.error('Logout API error:', error);

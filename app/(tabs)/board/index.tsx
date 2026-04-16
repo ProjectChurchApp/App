@@ -153,7 +153,7 @@ export default function BoardScreen() {
       {/* 헤더 */}
       <View style={[styles.header, { paddingTop: insets.top + 16 }]}>
         <Text style={styles.title}>게시판</Text>
-        {user && (
+        {user?.role === '목사' && (
           <TouchableOpacity
             style={styles.writeButton}
             onPress={() => router.push('/(tabs)/board/write')}

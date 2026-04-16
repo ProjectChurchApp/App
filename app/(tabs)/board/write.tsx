@@ -16,6 +16,7 @@ import {
   View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useAuth } from '../../../contexts/AuthContext';
 import { api } from '../../../utils/api';
 
 export default function BoardWriteScreen() {
@@ -25,6 +26,10 @@ export default function BoardWriteScreen() {
   const { width } = useWindowDimensions();
   const insets = useSafeAreaInsets();
   const router = useRouter();
+  const { user } = useAuth();
+
+  // 🔐 목사 여부
+  const isPastor = user?.role === '목사';
 
   const [title, setTitle] = useState('');
   const [contents, setContents] = useState('');
@@ -33,9 +38,18 @@ export default function BoardWriteScreen() {
 
   const contentWidth = Math.min(width * 0.95, 680);
 
+  // ── 권한 체크: 목사가 아니면 즉시 차단 ──────────────────
+  useEffect(() => {
+    if (!isPastor) {
+      const msg = '게시글 작성 권한이 없습니다.';
+      Platform.OS === 'web' ? window.alert(msg) : Alert.alert('접근 불가', msg);
+      router.back();
+    }
+  }, [isPastor]);
+
   // ── 수정 모드: 기존 내용 불러오기 ─────────────────────
   useEffect(() => {
-    if (!isEditMode) return;
+    if (!isEditMode || !isPastor) return;
 
     const fetchExisting = async () => {
       try {
@@ -56,7 +70,7 @@ export default function BoardWriteScreen() {
     };
 
     fetchExisting();
-  }, [id]);
+  }, [id, isPastor]);
 
   // ── 유효성 검사 ───────────────────────────────────────
   const validate = () => {
@@ -92,6 +106,8 @@ export default function BoardWriteScreen() {
       setIsLoading(false);
     }
   };
+
+  if (!isPastor) return null;
 
   if (isFetching) {
     return (
