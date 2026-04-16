@@ -19,7 +19,8 @@ const MAPPING = {
   'chevron.left.forwardslash.chevron.right': 'code',
   'chevron.right': 'chevron-right',
   'list.bullet': 'list',        // ← 추가
-  'person.fill': 'person',      // ← 추가
+  'person.fill': 'person',
+  'hands.sparkles.fill': 'front-hand',     // ← 추가
 } as IconMapping;
 
 /**
