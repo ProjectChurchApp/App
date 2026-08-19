@@ -15,6 +15,9 @@ import {
 } from 'react-native';
 import { Role } from '../../types/user';
 
+// 백엔드 PasswordValidator와 동일한 규칙: 8자 이상, 영문/숫자/특수문자(@$!%*#?&) 각 1개 이상
+const PASSWORD_REGEX = /^(?=.*[A-Za-z])(?=.*\d)(?=.*[@$!%*#?&])[A-Za-z\d@$!%*#?&]{8,}$/;
+
 export default function SignupScreen() {
   const router = useRouter();
   const { signup } = useAuth();
@@ -30,33 +33,37 @@ export default function SignupScreen() {
   // 반응형: 최대 너비 제한
   const formWidth = Math.min(width * 0.9, 440);
 
-  const handleSignup = async () => {
-    const showAlert = (message: string) => {
+  const showAlert = (message: string) => {
     if (Platform.OS === 'web') {
       alert(message);
     } else {
-      Alert.alert('알림', message); // 플랫폼 대응 UI
+      Alert.alert('알림', message);
     }
   };
 
-  if (!loginID.trim()) {
-    showAlert('아이디를 입력해주세요.');
-    return;
-  }
-  if (!name.trim()) {
-    showAlert('이름을 입력해주세요.');
-    return;
-  }
-    if (!loginID.trim()) { alert('아이디를 입력해주세요.'); return; }
-    if (!name.trim()) { alert('이름을 입력해주세요.'); return; }
-    if (password !== confirmPassword) { alert('비밀번호가 일치하지 않습니다.'); return; }
-    if (password.length < 6) { alert('비밀번호는 6자 이상이어야 합니다.'); return; }
+  const handleSignup = async () => {
+    if (!loginID.trim()) {
+      showAlert('아이디를 입력해주세요.');
+      return;
+    }
+    if (!name.trim()) {
+      showAlert('이름을 입력해주세요.');
+      return;
+    }
+    if (password !== confirmPassword) {
+      showAlert('비밀번호가 일치하지 않습니다.');
+      return;
+    }
+    if (!PASSWORD_REGEX.test(password)) {
+      showAlert('비밀번호는 8자 이상이며 영문, 숫자, 특수문자(@$!%*#?&)를 포함해야 합니다.');
+      return;
+    }
 
     try {
       setIsLoading(true);
       await signup(loginID, password, name, role);
     } catch (error: any) {
-      alert(error.message || '회원가입에 실패했습니다.');
+      showAlert(error.message || '회원가입에 실패했습니다.');
     } finally {
       setIsLoading(false);
     }
@@ -119,14 +126,19 @@ export default function SignupScreen() {
               </View>
 
               {/* 비밀번호 */}
-              <TextInput
-                style={styles.input}
-                placeholder="비밀번호"
-                placeholderTextColor="#999"
-                value={password}
-                onChangeText={setPassword}
-                secureTextEntry
-              />
+              <View>
+                <TextInput
+                  style={styles.input}
+                  placeholder="비밀번호"
+                  placeholderTextColor="#999"
+                  value={password}
+                  onChangeText={setPassword}
+                  secureTextEntry
+                />
+                <Text style={styles.passwordHint}>
+                  8자 이상, 영문·숫자·특수문자(@$!%*#?&) 포함
+                </Text>
+              </View>
 
               {/* 비밀번호 확인 */}
               <TextInput
@@ -210,6 +222,12 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#999999',
     marginTop: 8,
+  },
+  passwordHint: {
+    fontSize: 12,
+    color: '#999999',
+    marginTop: 6,
+    marginLeft: 2,
   },
   roleContainer: {
     flexDirection: 'row',

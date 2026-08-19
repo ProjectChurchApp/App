@@ -1,5 +1,7 @@
-// app/(tabs)/prayer/[id].tsx
+// components/screens/PrayerDetailScreen.tsx
+// 나의기도 / 성도기도요청 / 중보기도 탭에서 공통으로 쓰는 기도 상세 화면
 
+import { useBottomTabBarHeight } from '@react-navigation/bottom-tabs';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
 import {
@@ -14,11 +16,11 @@ import {
     View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { CommentInputBar, CommentList } from '../../../components/CommentSection';
-import { useAuth } from '../../../contexts/AuthContext';
-import { CommentItem } from '../../../types/comment';
-import { PrayerItem, PrayerStatus } from '../../../types/prayer';
-import { api } from '../../../utils/api';
+import { useAuth } from '../../contexts/AuthContext';
+import { CommentItem } from '../../types/comment';
+import { PrayerItem, PrayerStatus } from '../../types/prayer';
+import { api } from '../../utils/api';
+import { CommentInputBar, CommentList } from '../CommentSection';
 
 type PrayerDetail = PrayerItem;
 
@@ -40,9 +42,10 @@ function formatDateFull(iso: string): string {
 }
 
 // ─── 메인 화면 ───────────────────────────────────────────
-export default function PrayerDetailScreen() {
+export function PrayerDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const insets = useSafeAreaInsets();
+  const tabBarHeight = useBottomTabBarHeight();
   const router = useRouter();
   const { user } = useAuth();
 
@@ -247,13 +250,15 @@ export default function PrayerDetailScreen() {
 
         {canManage && (
           <View style={styles.headerActions}>
-            <TouchableOpacity
-              style={styles.editButton}
-              onPress={() => router.push(`/(tabs)/prayer/write?id=${id}`)}
-              activeOpacity={0.8}
-            >
-              <Text style={styles.editButtonText}>수정</Text>
-            </TouchableOpacity>
+            {!isPromoted && (
+              <TouchableOpacity
+                style={styles.editButton}
+                onPress={() => router.push(`/(tabs)/my-prayer/write?id=${id}`)}
+                activeOpacity={0.8}
+              >
+                <Text style={styles.editButtonText}>수정</Text>
+              </TouchableOpacity>
+            )}
             <TouchableOpacity
               style={[styles.deleteButton, isDeleting && styles.buttonDisabled]}
               onPress={handleDelete}
@@ -378,7 +383,7 @@ export default function PrayerDetailScreen() {
           setEditingComment(null);
           setCommentText('');
         }}
-        bottomPadding={insets.bottom + 60}
+        bottomPadding={tabBarHeight}
       />
     </KeyboardAvoidingView>
   );
@@ -447,7 +452,7 @@ const styles = StyleSheet.create({
   articleContents: { fontSize: 16, color: '#333333', lineHeight: 26 },
 
   // 상태
-  statusRow: { flexDirection: 'row', gap: 8, marginTop: 4 },
+  statusRow: { flexDirection: 'row', gap: 8, marginTop: 4, flexWrap: 'wrap' },
   statusButton: {
     paddingHorizontal: 12,
     paddingVertical: 8,

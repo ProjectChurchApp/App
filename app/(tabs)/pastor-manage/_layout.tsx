@@ -1,6 +1,6 @@
-// app/(tabs)/prayer/_layout.tsx
+// app/(tabs)/pastor-manage/_layout.tsx
 import { Stack } from 'expo-router';
 
-export default function PrayerLayout() {
+export default function PastorManageLayout() {
   return <Stack screenOptions={{ headerShown: false }} />;
 }

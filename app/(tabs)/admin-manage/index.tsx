@@ -1,15 +1,19 @@
-// app/(tabs)/profile/admin-approvals.tsx
+// app/(tabs)/admin-manage/index.tsx
+// 관리자 전용: 목사 가입 승인 관리
 
-import { useFocusEffect, useRouter } from 'expo-router';
+import { useBottomTabBarHeight } from '@react-navigation/bottom-tabs';
+import { useFocusEffect } from 'expo-router';
 import { useCallback, useState } from 'react';
 import { ActivityIndicator, Alert, FlatList, Platform, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useAuth } from '../../../contexts/AuthContext';
 import { PastorRequest } from '../../../types/user';
 import { api } from '../../../utils/api';
 
-export default function AdminApprovalsScreen() {
+export default function AdminManageScreen() {
   const insets = useSafeAreaInsets();
-  const router = useRouter();
+  const tabBarHeight = useBottomTabBarHeight();
+  const { user } = useAuth();
 
   const [requests, setRequests] = useState<PastorRequest[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -48,12 +52,18 @@ export default function AdminApprovalsScreen() {
   };
 
   return (
-    <View style={[styles.container, { paddingBottom: insets.bottom }]}>
+    <View style={[styles.container, { paddingBottom: tabBarHeight }]}>
+      {/* 헤더 */}
       <View style={[styles.header, { paddingTop: insets.top + 16 }]}>
-        <TouchableOpacity onPress={() => router.back()} activeOpacity={0.7}>
-          <Text style={styles.backButtonText}>← 뒤로</Text>
-        </TouchableOpacity>
-        <Text style={styles.title}>목사 승인 관리</Text>
+        <View style={styles.headerTitleGroup}>
+          <Text style={styles.title}>승인 관리</Text>
+          <Text style={styles.subtitle}>목사 가입 승인</Text>
+        </View>
+        <View style={styles.avatar}>
+          <Text style={styles.avatarText}>
+            {user?.name?.charAt(0).toUpperCase() ?? '?'}
+          </Text>
+        </View>
       </View>
 
       {isLoading ? (
@@ -70,6 +80,8 @@ export default function AdminApprovalsScreen() {
           keyExtractor={(item) => String(item.userId)}
           contentContainerStyle={styles.listContent}
           ItemSeparatorComponent={() => <View style={styles.separator} />}
+          onRefresh={fetchData}
+          refreshing={isLoading}
           renderItem={({ item }) => (
             <View style={styles.requestCard}>
               <View>
@@ -104,9 +116,28 @@ export default function AdminApprovalsScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#FFFFFF' },
-  header: { paddingHorizontal: 20, paddingBottom: 12, gap: 8 },
-  backButtonText: { fontSize: 16, color: '#000000', fontWeight: '500' },
-  title: { fontSize: 24, fontWeight: 'bold', color: '#000000' },
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 20,
+    paddingBottom: 16,
+    gap: 8,
+  },
+  headerTitleGroup: { flexShrink: 1 },
+  title: { fontSize: 28, fontWeight: 'bold', color: '#000000' },
+  subtitle: { fontSize: 13, color: '#999999', marginTop: 2 },
+  avatar: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: '#000000',
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexShrink: 0,
+  },
+  avatarText: { color: '#FFFFFF', fontSize: 15, fontWeight: 'bold' },
+
   listContent: { paddingHorizontal: 20, paddingTop: 8, paddingBottom: 24 },
   separator: { height: 10 },
   requestCard: {

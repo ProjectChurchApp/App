@@ -1,5 +1,6 @@
 // app/(tabs)/profile/connect.tsx
 
+import { useBottomTabBarHeight } from '@react-navigation/bottom-tabs';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { useCallback, useState } from 'react';
 import { ActivityIndicator, Alert, FlatList, Platform, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
@@ -15,6 +16,7 @@ const STATUS_LABELS: Record<ConnectionStatus, string> = {
 
 export default function ConnectScreen() {
   const insets = useSafeAreaInsets();
+  const tabBarHeight = useBottomTabBarHeight();
   const router = useRouter();
 
   const [pastors, setPastors] = useState<PastorOption[]>([]);
@@ -61,7 +63,7 @@ export default function ConnectScreen() {
   const showPastorList = !isLoading && (!connection || connection.status === 'REJECTED');
 
   return (
-    <View style={[styles.container, { paddingBottom: insets.bottom }]}>
+    <View style={[styles.container, { paddingBottom: tabBarHeight }]}>
       <View style={[styles.header, { paddingTop: insets.top + 16 }]}>
         <TouchableOpacity onPress={() => router.back()} activeOpacity={0.7}>
           <Text style={styles.backButtonText}>← 뒤로</Text>

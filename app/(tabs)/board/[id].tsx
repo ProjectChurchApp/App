@@ -1,5 +1,6 @@
 // app/(tabs)/board/[id].tsx
 
+import { useBottomTabBarHeight } from '@react-navigation/bottom-tabs';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
 import {
@@ -39,6 +40,7 @@ export default function BoardDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { height } = useWindowDimensions();
   const insets = useSafeAreaInsets();
+  const tabBarHeight = useBottomTabBarHeight();
   const router = useRouter();
   const { user } = useAuth();
   const scrollViewRef = useRef<ScrollView>(null);
@@ -262,7 +264,7 @@ export default function BoardDetailScreen() {
           setEditingComment(null);
           setCommentText('');
         }}
-        bottomPadding={insets.bottom + 60}
+        bottomPadding={tabBarHeight}
       />
     </KeyboardAvoidingView>
   );

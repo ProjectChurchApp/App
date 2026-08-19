@@ -1,4 +1,5 @@
 // app/(tabs)/board/index.tsx
+import { useBottomTabBarHeight } from '@react-navigation/bottom-tabs';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
 import {
@@ -52,12 +53,17 @@ function BoardCard({ item, onPress }: { item: BoardItem; onPress: () => void }) 
       onPress={onPress}
       activeOpacity={0.75}
     >
-      {isUnread && <View style={styles.unreadDot} />}
-
       <View style={styles.cardTop}>
-        <Text style={styles.cardTitle} numberOfLines={1}>
-          {item.title}
-        </Text>
+        <View style={styles.cardTitleRow}>
+          {isUnread && (
+            <View style={styles.newBadge}>
+              <Text style={styles.newBadgeText}>NEW</Text>
+            </View>
+          )}
+          <Text style={styles.cardTitle} numberOfLines={1}>
+            {item.title}
+          </Text>
+        </View>
         <Text style={styles.cardDate}>{formatDate(item.createdDate)}</Text>
       </View>
 
@@ -74,6 +80,7 @@ function BoardCard({ item, onPress }: { item: BoardItem; onPress: () => void }) 
 export default function BoardScreen() {
   const { width } = useWindowDimensions();
   const insets = useSafeAreaInsets();
+  const tabBarHeight = useBottomTabBarHeight();
   const router = useRouter();
   const { user } = useAuth();
 
@@ -149,19 +156,30 @@ export default function BoardScreen() {
 
   // ── 렌더 ──────────────────────────────────────────────
   return (
-    <View style={[styles.container, { paddingBottom: insets.bottom }]}>
+    <View style={[styles.container, { paddingBottom: tabBarHeight }]}>
       {/* 헤더 */}
       <View style={[styles.header, { paddingTop: insets.top + 16 }]}>
         <Text style={styles.title}>게시판</Text>
-        {user?.role === '목사' && (
+        <View style={styles.headerActions}>
+          {user?.role === '목사' && (
+            <TouchableOpacity
+              style={styles.writeButton}
+              onPress={() => router.push('/(tabs)/board/write')}
+              activeOpacity={0.8}
+            >
+              <Text style={styles.writeButtonText}>+ 글쓰기</Text>
+            </TouchableOpacity>
+          )}
           <TouchableOpacity
-            style={styles.writeButton}
-            onPress={() => router.push('/(tabs)/board/write')}
+            style={styles.avatar}
+            onPress={() => router.push('/(tabs)/profile')}
             activeOpacity={0.8}
           >
-            <Text style={styles.writeButtonText}>+ 글쓰기</Text>
+            <Text style={styles.avatarText}>
+              {user?.name?.charAt(0).toUpperCase() ?? '?'}
+            </Text>
           </TouchableOpacity>
-        )}
+        </View>
       </View>
 
       {/* 검색 바 */}
@@ -316,6 +334,7 @@ const styles = StyleSheet.create({
     paddingBottom: 12,
   },
   title: { fontSize: 32, fontWeight: 'bold', color: '#000000' },
+  headerActions: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   writeButton: {
     backgroundColor: '#000000',
     paddingHorizontal: 16,
@@ -323,6 +342,15 @@ const styles = StyleSheet.create({
     borderRadius: 8,
   },
   writeButtonText: { color: '#FFFFFF', fontSize: 14, fontWeight: '600' },
+  avatar: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: '#000000',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  avatarText: { color: '#FFFFFF', fontSize: 15, fontWeight: 'bold' },
 
   // 검색
   searchRow: {
@@ -399,21 +427,26 @@ const styles = StyleSheet.create({
     borderLeftWidth: 3,
     borderLeftColor: '#000000',
   },
-  unreadDot: {
-    position: 'absolute',
-    top: 16,
-    right: 16,
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: '#000000',
-  },
   cardTop: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     gap: 8,
   },
+  cardTitleRow: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  newBadge: {
+    backgroundColor: '#FF3B30',
+    borderRadius: 6,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    flexShrink: 0,
+  },
+  newBadgeText: { fontSize: 10, fontWeight: '700', color: '#FFFFFF' },
   cardTitle: { flex: 1, fontSize: 16, fontWeight: '700', color: '#000000' },
   cardDate: { fontSize: 12, color: '#999999', flexShrink: 0 },
   cardContents: { fontSize: 14, color: '#444444', lineHeight: 20 },

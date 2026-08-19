@@ -1,4 +1,4 @@
-// app/(tabs)/prayer/write.tsx
+// app/(tabs)/my-prayer/write.tsx
 
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
@@ -19,7 +19,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Connection } from '../../../types/connection';
 import { api } from '../../../utils/api';
 
-export default function PrayerWriteScreen() {
+export default function MyPrayerWriteScreen() {
   const { id } = useLocalSearchParams<{ id?: string }>();
   const isEditMode = !!id;
 

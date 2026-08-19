@@ -48,7 +48,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
     } else {
       if (inAuthGroup || isAtRoot) {
-        router.replace('/(tabs)');
+        router.replace('/(tabs)/board');
       }
     }
   }, [user, segments, isLoading, hasLoggedInBefore]);

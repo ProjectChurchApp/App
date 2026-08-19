@@ -1,5 +1,6 @@
 // app/(tabs)/profile/index.tsx
 
+import { useBottomTabBarHeight } from '@react-navigation/bottom-tabs';
 import { useRouter } from 'expo-router';
 import { Alert, Platform, ScrollView, StyleSheet, Text, TouchableOpacity, useWindowDimensions, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -9,6 +10,7 @@ export default function ProfileScreen() {
   const { user, logout, isLoading } = useAuth();
   const { width, height } = useWindowDimensions();
   const insets = useSafeAreaInsets();
+  const tabBarHeight = useBottomTabBarHeight();
   const router = useRouter();
 
   // 반응형: 최대 너비 제한
@@ -56,15 +58,9 @@ export default function ProfileScreen() {
   if (user.role === '성도') {
     menuItems.push({ label: '목사님과 연결', onPress: () => router.push('/(tabs)/profile/connect' as any) });
   }
-  if (user.role === '목사') {
-    menuItems.push({ label: '목사 관리', onPress: () => router.push('/(tabs)/profile/pastor-dashboard' as any) });
-  }
-  if (user.role === '관리자') {
-    menuItems.push({ label: '목사 승인 관리', onPress: () => router.push('/(tabs)/profile/admin-approvals' as any) });
-  }
 
   return (
-    <View style={[styles.container, { paddingBottom: insets.bottom }]}>
+    <View style={[styles.container, { paddingBottom: tabBarHeight }]}>
       {/* 헤더 */}
       <View style={[styles.header, { paddingTop: insets.top + 16 }]}>
         <Text style={styles.title}>프로필</Text>
@@ -74,7 +70,7 @@ export default function ProfileScreen() {
         style={styles.scrollView}
         contentContainerStyle={[
           styles.scrollContent,
-          { minHeight: height - insets.top - insets.bottom - 70 },
+          { minHeight: height - insets.top - tabBarHeight - 70 },
         ]}
         showsVerticalScrollIndicator={false}
         bounces={false}>
