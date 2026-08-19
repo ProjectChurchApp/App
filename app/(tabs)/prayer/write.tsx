@@ -16,6 +16,7 @@ import {
     View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { Connection } from '../../../types/connection';
 import { api } from '../../../utils/api';
 
 export default function PrayerWriteScreen() {
@@ -31,8 +32,40 @@ export default function PrayerWriteScreen() {
   const [visibility, setVisibility] = useState<'PRIVATE' | 'PASTOR'>('PRIVATE');
   const [isLoading, setIsLoading] = useState(false);
   const [isFetching, setIsFetching] = useState(isEditMode);
+  const [connection, setConnection] = useState<Connection | null>(null);
 
   const contentWidth = Math.min(width * 0.95, 680);
+  const hasApprovedPastor = connection?.status === 'APPROVED';
+
+  // ── 연결된 목사님 확인 ─────────────────────────────────
+  useEffect(() => {
+    (async () => {
+      try {
+        const res = await api.get<Connection | null>('/connections/me');
+        setConnection(res.data);
+      } catch {
+        setConnection(null);
+      }
+    })();
+  }, []);
+
+  const handleSelectPastorVisibility = () => {
+    if (!hasApprovedPastor) {
+      const msg = '먼저 목사님과 연결해주세요.';
+      if (Platform.OS === 'web') {
+        if (window.confirm(msg + ' 지금 연결 화면으로 이동할까요?')) {
+          router.push('/(tabs)/profile/connect' as any);
+        }
+      } else {
+        Alert.alert('안내', msg, [
+          { text: '취소', style: 'cancel' },
+          { text: '연결하기', onPress: () => router.push('/(tabs)/profile/connect' as any) },
+        ]);
+      }
+      return;
+    }
+    setVisibility('PASTOR');
+  };
 
   // ── 수정 모드: 기존 내용 불러오기 ─────────────────────
   useEffect(() => {
@@ -171,7 +204,7 @@ export default function PrayerWriteScreen() {
                   styles.visibilityButton,
                   visibility === 'PASTOR' && styles.visibilityButtonActive,
                 ]}
-                onPress={() => setVisibility('PASTOR')}
+                onPress={handleSelectPastorVisibility}
                 activeOpacity={0.8}
               >
                 <Text style={[
@@ -187,6 +220,11 @@ export default function PrayerWriteScreen() {
                 ? '나만 볼 수 있어요. 개인적인 기도 기록으로 사용하세요.'
                 : '목사님께 기도 요청을 전달해요. 목사님께 알림이 전송됩니다.'}
             </Text>
+            {!hasApprovedPastor && (
+              <Text style={styles.visibilityHint}>
+                아직 연결된 목사님이 없어요. 프로필에서 먼저 연결해주세요.
+              </Text>
+            )}
           </View>
 
           <View style={styles.divider} />
@@ -294,6 +332,11 @@ const styles = StyleSheet.create({
   visibilityDesc: {
     fontSize: 12,
     color: '#999999',
+    lineHeight: 18,
+  },
+  visibilityHint: {
+    fontSize: 12,
+    color: '#B8752E',
     lineHeight: 18,
   },
 

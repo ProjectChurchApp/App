@@ -11,26 +11,20 @@ import {
     Text,
     TextInput,
     TouchableOpacity,
-    useWindowDimensions,
     View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useAuth } from '../../../contexts/AuthContext';
+import { PrayerItem, PrayerStatus } from '../../../types/prayer';
 import { api } from '../../../utils/api';
-
-// ─── 타입 ───────────────────────────────────────────────
-interface PrayerItem {
-  id: number;
-  title: string;
-  contents: string;
-  writerName: string;
-  writerLoginID: string;
-  visibility: 'PRIVATE' | 'PASTOR';
-  createdDate: string;
-}
 
 // ─── 상수 ───────────────────────────────────────────────
 const PAGE_SIZE = 10;
+
+const STATUS_LABELS: Record<PrayerStatus, string> = {
+  PRAYING: '🙏 기도중',
+  ANSWERED: '✅ 응답',
+  CLOSED: '🏁 종료',
+};
 
 // ─── 날짜 포맷 ───────────────────────────────────────────
 function formatDate(iso: string): string {
@@ -44,9 +38,16 @@ function formatDate(iso: string): string {
 }
 
 // ─── 카드 컴포넌트 ───────────────────────────────────────
-function PrayerCard({ item, onPress }: {
+function PrayerCard({
+  item,
+  mode,
+  onPress,
+  onTogglePray,
+}: {
   item: PrayerItem;
+  mode: 'mine' | 'intercessory';
   onPress: () => void;
+  onTogglePray: () => void;
 }) {
   return (
     <TouchableOpacity style={styles.card} onPress={onPress} activeOpacity={0.75}>
@@ -56,27 +57,45 @@ function PrayerCard({ item, onPress }: {
       </View>
       <Text style={styles.cardContents} numberOfLines={2}>{item.contents}</Text>
       <View style={styles.cardBottom}>
-        <Text style={styles.cardWriter}>{item.writerName}</Text>
-        <View style={[
-          styles.visibilityBadge,
-          item.visibility === 'PRIVATE' ? styles.badgePrivate : styles.badgePastor
-        ]}>
-          <Text style={styles.visibilityText}>
-            {item.visibility === 'PRIVATE' ? '🔒 나만보기' : '🙏 목사님께'}
-          </Text>
+        <Text style={styles.cardWriter}>
+          {mode === 'intercessory' ? `기도요청자: ${item.writerName}` : item.writerName}
+        </Text>
+        <View style={styles.cardBadges}>
+          <View style={styles.statusBadge}>
+            <Text style={styles.statusText}>{STATUS_LABELS[item.status]}</Text>
+          </View>
+          {mode === 'mine' && (
+            <View style={[
+              styles.visibilityBadge,
+              item.visibility === 'PRIVATE' ? styles.badgePrivate : styles.badgePastor
+            ]}>
+              <Text style={styles.visibilityText}>
+                {item.visibility === 'PRIVATE' ? '🔒 나만보기' : '🙏 목사님께'}
+              </Text>
+            </View>
+          )}
         </View>
       </View>
+
+      <TouchableOpacity
+        style={[styles.prayButton, item.hasPrayed && styles.prayButtonActive]}
+        onPress={onTogglePray}
+        activeOpacity={0.8}
+      >
+        <Text style={[styles.prayButtonText, item.hasPrayed && styles.prayButtonTextActive]}>
+          🙏 기도했어요 {item.prayerCount}
+        </Text>
+      </TouchableOpacity>
     </TouchableOpacity>
   );
 }
 
 // ─── 메인 화면 ───────────────────────────────────────────
 export default function PrayerScreen() {
-  const { width } = useWindowDimensions();
   const insets = useSafeAreaInsets();
   const router = useRouter();
-  const { user } = useAuth();
 
+  const [tab, setTab] = useState<'mine' | 'intercessory'>('mine');
   const [allPrayers, setAllPrayers] = useState<PrayerItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -111,12 +130,13 @@ export default function PrayerScreen() {
   );
 
   // ── 데이터 불러오기 ────────────────────────────────────
-  const fetchPrayers = useCallback(async (refreshing = false) => {
+  const fetchPrayers = useCallback(async (currentTab: 'mine' | 'intercessory', refreshing = false) => {
     if (refreshing) setIsRefreshing(true);
     else setIsLoading(true);
 
     try {
-      const res = await api.get<PrayerItem[]>('/prayer');
+      const endpoint = currentTab === 'mine' ? '/prayer' : '/prayer/intercessory';
+      const res = await api.get<PrayerItem[]>(endpoint);
       setAllPrayers(res.data);
       setCurrentPage(1);
     } catch (e: any) {
@@ -131,14 +151,29 @@ export default function PrayerScreen() {
   // 화면 포커스 시 자동 새로고침
   useFocusEffect(
     useCallback(() => {
-      fetchPrayers();
-    }, [fetchPrayers])
+      fetchPrayers(tab);
+    }, [fetchPrayers, tab])
   );
 
   // 검색어/타입 바뀌면 페이지 초기화
   useEffect(() => {
     setCurrentPage(1);
   }, [searchKeyword, searchType]);
+
+  // ── 기도했어요 토글 ────────────────────────────────────
+  const handleTogglePray = async (prayerId: number) => {
+    try {
+      const res = await api.post<{ prayerCount: number; hasPrayed: boolean }>(`/prayer/${prayerId}/pray`);
+      setAllPrayers((prev) =>
+        prev.map((p) =>
+          p.id === prayerId ? { ...p, prayerCount: res.data.prayerCount, hasPrayed: res.data.hasPrayed } : p
+        )
+      );
+    } catch (e: any) {
+      const msg = e?.response?.data?.message ?? e?.message ?? '오류가 발생했습니다.';
+      Platform.OS === 'web' ? window.alert(msg) : Alert.alert('오류', msg);
+    }
+  };
 
   return (
     <View style={[styles.container, { paddingBottom: insets.bottom }]}>
@@ -148,13 +183,34 @@ export default function PrayerScreen() {
           <Text style={styles.title}>기도 요청</Text>
           <Text style={styles.subtitle}>간절한 마음을 전해보세요</Text>
         </View>
-        <TouchableOpacity
-          style={styles.writeButton}
-          onPress={() => router.push('/(tabs)/prayer/write' as any)}
-          activeOpacity={0.8}
-        >
-          <Text style={styles.writeButtonText}>+ 작성</Text>
-        </TouchableOpacity>
+        {tab === 'mine' && (
+          <TouchableOpacity
+            style={styles.writeButton}
+            onPress={() => router.push('/(tabs)/prayer/write' as any)}
+            activeOpacity={0.8}
+          >
+            <Text style={styles.writeButtonText}>+ 작성</Text>
+          </TouchableOpacity>
+        )}
+      </View>
+
+      {/* 세그먼트 */}
+      <View style={styles.segmentRow}>
+        {([
+          { key: 'mine', label: '나의기도' },
+          { key: 'intercessory', label: '중보기도' },
+        ] as const).map((seg) => (
+          <TouchableOpacity
+            key={seg.key}
+            style={[styles.segmentButton, tab === seg.key && styles.segmentButtonActive]}
+            onPress={() => setTab(seg.key)}
+            activeOpacity={0.8}
+          >
+            <Text style={[styles.segmentText, tab === seg.key && styles.segmentTextActive]}>
+              {seg.label}
+            </Text>
+          </TouchableOpacity>
+        ))}
       </View>
 
       {/* 검색 바 */}
@@ -202,9 +258,11 @@ export default function PrayerScreen() {
       ) : pagedPrayers.length === 0 ? (
         <View style={styles.centerBox}>
           <Text style={styles.emptyText}>
-            {searchKeyword.trim() ? '검색 결과가 없습니다.' : '기도 요청이 없습니다.'}
+            {searchKeyword.trim()
+              ? '검색 결과가 없습니다.'
+              : tab === 'mine' ? '기도 요청이 없습니다.' : '중보기도 요청이 없습니다.'}
           </Text>
-          {!searchKeyword.trim() && (
+          {!searchKeyword.trim() && tab === 'mine' && (
             <Text style={styles.emptySubText}>첫 번째 기도 요청을 작성해보세요 🙏</Text>
           )}
         </View>
@@ -215,15 +273,17 @@ export default function PrayerScreen() {
           renderItem={({ item }) => (
             <PrayerCard
               item={item}
+              mode={tab}
               onPress={() => router.push({
                 pathname: '/(tabs)/prayer/[id]',
                 params: { id: item.id }
               })}
+              onTogglePray={() => handleTogglePray(item.id)}
             />
           )}
           contentContainerStyle={styles.listContent}
           ItemSeparatorComponent={() => <View style={styles.separator} />}
-          onRefresh={() => fetchPrayers(true)}
+          onRefresh={() => fetchPrayers(tab, true)}
           refreshing={isRefreshing}
           showsVerticalScrollIndicator={false}
           ListFooterComponent={() => (
@@ -304,6 +364,26 @@ const styles = StyleSheet.create({
   },
   writeButtonText: { color: '#FFFFFF', fontSize: 14, fontWeight: '600' },
 
+  // 세그먼트
+  segmentRow: {
+    flexDirection: 'row',
+    marginHorizontal: 20,
+    marginBottom: 12,
+    backgroundColor: '#F0F0F0',
+    borderRadius: 10,
+    padding: 4,
+    gap: 4,
+  },
+  segmentButton: {
+    flex: 1,
+    paddingVertical: 8,
+    borderRadius: 8,
+    alignItems: 'center',
+  },
+  segmentButtonActive: { backgroundColor: '#000000' },
+  segmentText: { fontSize: 14, fontWeight: '600', color: '#666666' },
+  segmentTextActive: { color: '#FFFFFF' },
+
   // 검색
   searchRow: {
     flexDirection: 'row',
@@ -358,6 +438,14 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
   cardWriter: { fontSize: 12, color: '#999999' },
+  cardBadges: { flexDirection: 'row', gap: 6 },
+  statusBadge: {
+    paddingHorizontal: 10,
+    paddingVertical: 3,
+    borderRadius: 12,
+    backgroundColor: '#EAF4EA',
+  },
+  statusText: { fontSize: 11, fontWeight: '600', color: '#4A7A4A' },
   visibilityBadge: {
     paddingHorizontal: 10,
     paddingVertical: 3,
@@ -366,6 +454,19 @@ const styles = StyleSheet.create({
   badgePrivate: { backgroundColor: '#F0F0F0' },
   badgePastor: { backgroundColor: '#FFF3E0' },
   visibilityText: { fontSize: 11, fontWeight: '600', color: '#666666' },
+
+  // 기도해요 버튼
+  prayButton: {
+    marginTop: 4,
+    alignSelf: 'flex-start',
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 20,
+    backgroundColor: '#F0F0F0',
+  },
+  prayButtonActive: { backgroundColor: '#000000' },
+  prayButtonText: { fontSize: 13, fontWeight: '600', color: '#666666' },
+  prayButtonTextActive: { color: '#FFFFFF' },
 
   // 페이지네이션
   pagination: {

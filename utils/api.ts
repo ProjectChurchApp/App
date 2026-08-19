@@ -4,10 +4,12 @@ import * as Device from 'expo-device';
 import * as Notifications from 'expo-notifications';
 import * as SecureStore from 'expo-secure-store';
 import { Platform } from 'react-native';
+import { AccountStatus, Role, User } from '../types/user';
 
 export const API_BASE_URL = process.env.EXPO_PUBLIC_API_URL;
 const ACCESS_TOKEN_KEY  = 'access_token';
 const REFRESH_TOKEN_KEY = 'refresh_token';
+const REMEMBERED_LOGIN_ID_KEY = 'remembered_login_id';
 
 export const api = axios.create({
   baseURL: API_BASE_URL,
@@ -58,6 +60,30 @@ export const clearTokens = async () => {
       SecureStore.deleteItemAsync(ACCESS_TOKEN_KEY),
       SecureStore.deleteItemAsync(REFRESH_TOKEN_KEY),
     ]);
+  }
+};
+
+// ==================== 로그인 아이디 기억 ====================
+
+export const saveRememberedLoginID = async (loginID: string) => {
+  if (isWeb) {
+    await AsyncStorage.setItem(REMEMBERED_LOGIN_ID_KEY, loginID);
+  } else {
+    await SecureStore.setItemAsync(REMEMBERED_LOGIN_ID_KEY, loginID);
+  }
+};
+
+export const getRememberedLoginID = async () => {
+  return isWeb
+    ? AsyncStorage.getItem(REMEMBERED_LOGIN_ID_KEY)
+    : SecureStore.getItemAsync(REMEMBERED_LOGIN_ID_KEY);
+};
+
+export const clearRememberedLoginID = async () => {
+  if (isWeb) {
+    await AsyncStorage.removeItem(REMEMBERED_LOGIN_ID_KEY);
+  } else {
+    await SecureStore.deleteItemAsync(REMEMBERED_LOGIN_ID_KEY);
   }
 };
 
@@ -158,7 +184,7 @@ export interface SignupRequest {
   loginID: string;
   password: string;
   name: string;
-  role?: string;
+  role?: Role;
 }
 
 export interface SignupResponse {
@@ -190,14 +216,10 @@ export const logout = async (): Promise<void> => {
   await clearTokens();
 };
 
-export interface UserInfo {
-  loginID: string;
-  name: string;
-  role: string;
-}
+export type UserInfo = User;
 
 export const getUserInfo = async (): Promise<UserInfo> => {
-  const response = await api.get<Partial<UserInfo>>('/auth/me');
+  const response = await api.get<Partial<User> & { accountStatus?: AccountStatus }>('/auth/me');
   const data = response.data;
 
   console.log('getUserInfo 응답:', JSON.stringify(data));
@@ -210,6 +232,7 @@ export const getUserInfo = async (): Promise<UserInfo> => {
     loginID: data.loginID,
     name: data.name,
     role: data.role,
+    accountStatus: data.accountStatus ?? 'ACTIVE',
   };
 };
 

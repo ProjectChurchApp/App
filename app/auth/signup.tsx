@@ -13,6 +13,7 @@ import {
   useWindowDimensions,
   View,
 } from 'react-native';
+import { Role } from '../../types/user';
 
 export default function SignupScreen() {
   const router = useRouter();
@@ -23,7 +24,7 @@ export default function SignupScreen() {
   const [name, setName] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
-  const [role, setRole] = useState<'목사' | '신도'>('신도');
+  const [role, setRole] = useState<Extract<Role, '목사' | '성도'>>('성도');
   const [isLoading, setIsLoading] = useState(false);
 
   // 반응형: 최대 너비 제한
@@ -99,7 +100,7 @@ export default function SignupScreen() {
               <View>
                 <Text style={styles.roleLabel}>역할 선택</Text>
                 <View style={styles.roleContainer}>
-                  {(['신도', '목사'] as const).map((r) => (
+                  {(['성도', '목사'] as const).map((r) => (
                     <TouchableOpacity
                       key={r}
                       style={[styles.roleButton, role === r && styles.roleButtonActive]}
@@ -110,6 +111,11 @@ export default function SignupScreen() {
                     </TouchableOpacity>
                   ))}
                 </View>
+                {role === '목사' && (
+                  <Text style={styles.roleHint}>
+                    목사님 가입은 관리자 승인 후 활성화됩니다.
+                  </Text>
+                )}
               </View>
 
               {/* 비밀번호 */}
@@ -199,6 +205,11 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#666666',
     marginBottom: 8,
+  },
+  roleHint: {
+    fontSize: 12,
+    color: '#999999',
+    marginTop: 8,
   },
   roleContainer: {
     flexDirection: 'row',

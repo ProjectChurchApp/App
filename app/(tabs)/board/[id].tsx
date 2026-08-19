@@ -10,32 +10,18 @@ import {
   ScrollView,
   StyleSheet,
   Text,
-  TextInput,
   TouchableOpacity,
   useWindowDimensions,
   View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { CommentInputBar, CommentList } from '../../../components/CommentSection';
 import { useAuth } from '../../../contexts/AuthContext';
+import { BoardItem } from '../../../types/board';
+import { CommentItem } from '../../../types/comment';
 import { api } from '../../../utils/api';
 
-// ─── 타입 ───────────────────────────────────────────────
-interface BoardDetail {
-  id: number;
-  title: string;
-  contents: string;
-  writerName: string;
-  status: 'READ' | 'UNREAD';
-  createdDate: string;
-}
-
-interface CommentItem {
-  id: number;
-  contents: string;
-  writerName: string;
-  writerLoginID: string;
-  createdDate: string;
-}
+type BoardDetail = BoardItem;
 
 // ─── 날짜 포맷 ───────────────────────────────────────────
 function formatDateFull(iso: string): string {
@@ -48,64 +34,10 @@ function formatDateFull(iso: string): string {
   });
 }
 
-function formatDate(iso: string): string {
-  const date = new Date(iso);
-  const now = new Date();
-  const diffDays = Math.floor((now.getTime() - date.getTime()) / (1000 * 60 * 60 * 24));
-  if (diffDays === 0)
-    return date.toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' });
-  if (diffDays < 7) return `${diffDays}일 전`;
-  return date.toLocaleDateString('ko-KR', { month: 'long', day: 'numeric' });
-}
-
-// ─── 댓글 아이템 컴포넌트 ────────────────────────────────
-function CommentCard({
-  comment,
-  currentLoginID,
-  onDelete,
-  onEdit,
-}: {
-  comment: CommentItem;
-  currentLoginID: string;
-  onDelete: (id: number) => void;
-  onEdit: (comment: CommentItem) => void;
-}) {
-  const isMyComment = comment.writerLoginID === currentLoginID;
-
-  return (
-    <View style={styles.commentCard}>
-      <View style={styles.commentTop}>
-        <View style={styles.commentMeta}>
-          <View style={styles.commentAvatar}>
-            <Text style={styles.commentAvatarText}>
-              {comment.writerName.charAt(0).toUpperCase()}
-            </Text>
-          </View>
-          <View>
-            <Text style={styles.commentWriter}>{comment.writerName}</Text>
-            <Text style={styles.commentDate}>{formatDate(comment.createdDate)}</Text>
-          </View>
-        </View>
-        {isMyComment && (
-          <View style={styles.commentActions}>
-            <TouchableOpacity onPress={() => onEdit(comment)} activeOpacity={0.7}>
-              <Text style={styles.commentActionText}>수정</Text>
-            </TouchableOpacity>
-            <TouchableOpacity onPress={() => onDelete(comment.id)} activeOpacity={0.7}>
-              <Text style={[styles.commentActionText, { color: '#FF3B30' }]}>삭제</Text>
-            </TouchableOpacity>
-          </View>
-        )}
-      </View>
-      <Text style={styles.commentContents}>{comment.contents}</Text>
-    </View>
-  );
-}
-
 // ─── 메인 화면 ───────────────────────────────────────────
 export default function BoardDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
-  const { width, height } = useWindowDimensions();
+  const { height } = useWindowDimensions();
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const { user } = useAuth();
@@ -231,7 +163,8 @@ export default function BoardDetailScreen() {
     setCommentText(comment.contents);
   };
 
-  const canEdit = board?.writerName === user?.name;
+  const isPastor = user?.role === '목사';
+  const canEdit = !!board && !!user && (board.writerLoginID === user.loginID || isPastor);
 
   if (isLoading) {
     return (
@@ -309,69 +242,28 @@ export default function BoardDetailScreen() {
         </View>
 
         {/* 댓글 섹션 */}
-        <View style={styles.commentSection}>
-          <Text style={styles.commentSectionTitle}>
-            댓글 {comments.length > 0 ? `${comments.length}` : ''}
-          </Text>
-
-          {comments.length === 0 ? (
-            <View style={styles.commentEmpty}>
-              <Text style={styles.commentEmptyText}>첫 댓글을 작성해보세요</Text>
-            </View>
-          ) : (
-            comments.map((comment) => (
-              <CommentCard
-                key={comment.id}
-                comment={comment}
-                currentLoginID={user?.loginID ?? ''}
-                onDelete={handleDeleteComment}
-                onEdit={handleEditComment}
-              />
-            ))
-          )}
-        </View>
+        <CommentList
+          comments={comments}
+          currentLoginID={user?.loginID ?? ''}
+          isPastor={isPastor}
+          onEdit={handleEditComment}
+          onDelete={handleDeleteComment}
+        />
       </ScrollView>
 
       {/* 댓글 입력창 */}
-      <View style={[styles.commentInputWrapper, { paddingBottom: insets.bottom + 60 }]}>
-        {editingComment && (
-          <View style={styles.editingBanner}>
-            <Text style={styles.editingBannerText}>댓글 수정 중</Text>
-            <TouchableOpacity
-              onPress={() => {
-                setEditingComment(null);
-                setCommentText('');
-              }}
-            >
-              <Text style={styles.editingCancelText}>취소</Text>
-            </TouchableOpacity>
-          </View>
-        )}
-        <View style={styles.commentInputRow}>
-          <TextInput
-            style={styles.commentInput}
-            value={commentText}
-            onChangeText={setCommentText}
-            placeholder="댓글을 입력하세요"
-            placeholderTextColor="#AAAAAA"
-            multiline
-            maxLength={500}
-          />
-          <TouchableOpacity
-            style={[
-              styles.commentSubmitButton,
-              (!commentText.trim() || isSubmitting) && styles.commentSubmitButtonDisabled,
-            ]}
-            onPress={handleSubmitComment}
-            disabled={!commentText.trim() || isSubmitting}
-            activeOpacity={0.8}
-          >
-            <Text style={styles.commentSubmitButtonText}>
-              {isSubmitting ? '...' : editingComment ? '수정' : '등록'}
-            </Text>
-          </TouchableOpacity>
-        </View>
-      </View>
+      <CommentInputBar
+        commentText={commentText}
+        onChangeText={setCommentText}
+        editingComment={editingComment}
+        isSubmitting={isSubmitting}
+        onSubmit={handleSubmitComment}
+        onCancelEdit={() => {
+          setEditingComment(null);
+          setCommentText('');
+        }}
+        bottomPadding={insets.bottom + 60}
+      />
     </KeyboardAvoidingView>
   );
 }
@@ -434,91 +326,6 @@ const styles = StyleSheet.create({
   articleTitle: { fontSize: 24, fontWeight: 'bold', color: '#000000', lineHeight: 32 },
   divider: { height: 1, backgroundColor: '#EEEEEE', marginVertical: 4 },
   articleContents: { fontSize: 16, color: '#333333', lineHeight: 26 },
-
-  // 댓글 섹션
-  commentSection: { gap: 12 },
-  commentSectionTitle: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: '#000000',
-    marginBottom: 4,
-  },
-  commentEmpty: {
-    paddingVertical: 24,
-    alignItems: 'center',
-    backgroundColor: '#F8F8F8',
-    borderRadius: 12,
-  },
-  commentEmptyText: { fontSize: 14, color: '#999999' },
-
-  // 댓글 카드
-  commentCard: {
-    backgroundColor: '#F8F8F8',
-    borderRadius: 12,
-    padding: 14,
-    gap: 8,
-  },
-  commentTop: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  commentMeta: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  commentAvatar: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    backgroundColor: '#000000',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  commentAvatarText: { color: '#FFFFFF', fontSize: 12, fontWeight: 'bold' },
-  commentWriter: { fontSize: 13, fontWeight: '600', color: '#000000' },
-  commentDate: { fontSize: 11, color: '#999999' },
-  commentActions: { flexDirection: 'row', gap: 12 },
-  commentActionText: { fontSize: 12, color: '#666666', fontWeight: '500' },
-  commentContents: { fontSize: 14, color: '#333333', lineHeight: 22 },
-
-  // 댓글 입력창
-  commentInputWrapper: {
-    borderTopWidth: 1,
-    borderTopColor: '#EEEEEE',
-    paddingHorizontal: 16,
-    paddingTop: 10,
-    backgroundColor: '#FFFFFF',
-  },
-  editingBanner: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 8,
-    paddingHorizontal: 4,
-  },
-  editingBannerText: { fontSize: 12, color: '#666666' },
-  editingCancelText: { fontSize: 12, color: '#FF3B30', fontWeight: '600' },
-  commentInputRow: {
-    flexDirection: 'row',
-    alignItems: 'flex-end',
-    gap: 8,
-  },
-  commentInput: {
-    flex: 1,
-    backgroundColor: '#F4F4F4',
-    borderRadius: 20,
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    fontSize: 14,
-    color: '#000000',
-    maxHeight: 100,
-  },
-  commentSubmitButton: {
-    backgroundColor: '#000000',
-    borderRadius: 20,
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-  },
-  commentSubmitButtonDisabled: { opacity: 0.3 },
-  commentSubmitButtonText: { color: '#FFFFFF', fontSize: 14, fontWeight: '600' },
 
   // 공통
   centerBox: { flex: 1, alignItems: 'center', justifyContent: 'center' },

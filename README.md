@@ -49,9 +49,9 @@ Join our community of developers creating universal apps.
 - [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
 - [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
 
-# ⛪ ChurchApp
+# ⛪ 하트기도365
 
-교회 전용 게시판 및 알림 앱입니다.
+교회 전용 기도 요청 · 게시판 · 알림 앱입니다.
 
 ---
 
@@ -196,10 +196,12 @@ eas build --profile production --platform android
 
 | 역할 | 권한 |
 |------|------|
-| 목사 | 게시글 작성 / 수정 / 삭제 |
-| 신도 | 게시글 읽기 |
+| 관리자 | 목사 가입 승인/거절 |
+| 목사 | 메인/중보기도 게시판 작성, 수정, 삭제, 성도 댓글 삭제 (관리자 승인 후 활성화) |
+| 성도 | 나의기도 작성, 메인/중보기도 게시판 읽기 및 댓글 |
 
-> 현재는 모든 로그인 사용자가 작성 가능하도록 설정되어 있습니다.
+> 목사 회원가입은 즉시 활성화되지 않고, 관리자 승인 후 게시글 작성 권한이 부여됩니다.
+> 게시글 작성 권한은 서버 사이드(`@PreAuthorize`)에서도 강제됩니다.
 
 ---
 

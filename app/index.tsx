@@ -11,13 +11,13 @@ export default function SplashScreen() {
   return (
     <View style={styles.container}>
       <View style={styles.content}>
-        <Image 
-          source={require('../assets/images/hearticon.png')} 
+        <Image
+          source={require('../assets/images/heart-mark.png')}
           style={styles.logo}
           resizeMode="contain"
         />
-        <Text style={styles.title}>하트교회</Text>
-        <Text style={styles.subtitle}>HEART CHURCH</Text>
+        <Text style={styles.title}>하트기도365</Text>
+        <Text style={styles.subtitle}>HEART PRAYER 365</Text>
       </View>
 
       <TouchableOpacity style={styles.button} onPress={handleStart}>

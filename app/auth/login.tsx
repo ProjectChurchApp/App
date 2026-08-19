@@ -1,5 +1,5 @@
 import { useRouter } from 'expo-router';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -14,6 +14,7 @@ import {
   View,
 } from 'react-native';
 import { useAuth } from '../../contexts/AuthContext';
+import { clearRememberedLoginID, getRememberedLoginID, saveRememberedLoginID } from '../../utils/api';
 
 export default function LoginScreen() {
   const router = useRouter();
@@ -22,9 +23,20 @@ export default function LoginScreen() {
 
   const [loginID, setLoginID] = useState('');
   const [password, setPassword] = useState('');
+  const [rememberID, setRememberID] = useState(false);
 
   // 반응형: 최대 너비 제한 (태블릿 대응)
   const formWidth = Math.min(width * 0.9, 440);
+
+  useEffect(() => {
+    (async () => {
+      const remembered = await getRememberedLoginID();
+      if (remembered) {
+        setLoginID(remembered);
+        setRememberID(true);
+      }
+    })();
+  }, []);
 
   const handleLogin = async () => {
     if (!loginID.trim()) {
@@ -37,6 +49,11 @@ export default function LoginScreen() {
     }
     try {
       await login(loginID, password);
+      if (rememberID) {
+        await saveRememberedLoginID(loginID.trim());
+      } else {
+        await clearRememberedLoginID();
+      }
     } catch (error: any) {
       Alert.alert('로그인 실패', error.message || '아이디 또는 비밀번호가 올바르지 않습니다.');
     }
@@ -82,6 +99,17 @@ export default function LoginScreen() {
               />
 
               <TouchableOpacity
+                style={styles.rememberRow}
+                onPress={() => setRememberID((prev) => !prev)}
+                disabled={isLoading}
+                activeOpacity={0.7}>
+                <View style={[styles.checkbox, rememberID && styles.checkboxChecked]}>
+                  {rememberID && <Text style={styles.checkboxMark}>✓</Text>}
+                </View>
+                <Text style={styles.rememberText}>아이디 저장</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
                 style={[styles.loginButton, isLoading && styles.buttonDisabled]}
                 onPress={handleLogin}
                 disabled={isLoading}>
@@ -113,8 +141,8 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     flexGrow: 1,
-    justifyContent: 'center', 
-    alignItems: 'center',     
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   centerWrapper: {
     width: '100%',
@@ -146,6 +174,33 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
     fontSize: 16,
     backgroundColor: '#F9F9F9',
+  },
+  rememberRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  checkbox: {
+    width: 20,
+    height: 20,
+    borderRadius: 4,
+    borderWidth: 1.5,
+    borderColor: '#BBBBBB',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  checkboxChecked: {
+    backgroundColor: '#000000',
+    borderColor: '#000000',
+  },
+  checkboxMark: {
+    color: '#FFFFFF',
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  rememberText: {
+    fontSize: 14,
+    color: '#666666',
   },
   loginButton: {
     backgroundColor: '#000000',

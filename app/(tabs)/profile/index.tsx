@@ -1,13 +1,15 @@
-// app/(tabs)/profile.tsx
+// app/(tabs)/profile/index.tsx
 
+import { useRouter } from 'expo-router';
 import { Alert, Platform, ScrollView, StyleSheet, Text, TouchableOpacity, useWindowDimensions, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useAuth } from '../../contexts/AuthContext';
+import { useAuth } from '../../../contexts/AuthContext';
 
 export default function ProfileScreen() {
   const { user, logout, isLoading } = useAuth();
   const { width, height } = useWindowDimensions();
   const insets = useSafeAreaInsets();
+  const router = useRouter();
 
   // 반응형: 최대 너비 제한
   const contentWidth = Math.min(width * 0.9, 440);
@@ -47,7 +49,19 @@ export default function ProfileScreen() {
     );
   }
 
-  const roleLabel = user.role === '목사' ? '목사' : '신도';
+  const roleLabel = user.role;
+  const isPendingPastor = user.role === '목사' && user.accountStatus === 'PENDING_PASTOR_APPROVAL';
+
+  const menuItems: { label: string; onPress: () => void }[] = [];
+  if (user.role === '성도') {
+    menuItems.push({ label: '목사님과 연결', onPress: () => router.push('/(tabs)/profile/connect' as any) });
+  }
+  if (user.role === '목사') {
+    menuItems.push({ label: '목사 관리', onPress: () => router.push('/(tabs)/profile/pastor-dashboard' as any) });
+  }
+  if (user.role === '관리자') {
+    menuItems.push({ label: '목사 승인 관리', onPress: () => router.push('/(tabs)/profile/admin-approvals' as any) });
+  }
 
   return (
     <View style={[styles.container, { paddingBottom: insets.bottom }]}>
@@ -92,7 +106,29 @@ export default function ProfileScreen() {
               <View style={styles.roleBadge}>
                 <Text style={styles.roleText}>{roleLabel}</Text>
               </View>
+
+              {isPendingPastor && (
+                <View style={styles.pendingBadge}>
+                  <Text style={styles.pendingText}>관리자 승인 대기 중</Text>
+                </View>
+              )}
             </View>
+
+            {/* 역할별 메뉴 */}
+            {menuItems.length > 0 && (
+              <View style={styles.menuList}>
+                {menuItems.map((item) => (
+                  <TouchableOpacity
+                    key={item.label}
+                    style={styles.menuItem}
+                    onPress={item.onPress}
+                    activeOpacity={0.7}>
+                    <Text style={styles.menuItemText}>{item.label}</Text>
+                    <Text style={styles.menuItemArrow}>›</Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            )}
 
             {/* 로그아웃 버튼 */}
             <TouchableOpacity
@@ -140,7 +176,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
   },
   card: {
-    gap: 40,
+    gap: 32,
   },
   userInfo: {
     alignItems: 'center',
@@ -175,6 +211,41 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#666666',
     fontWeight: '600',
+  },
+  pendingBadge: {
+    backgroundColor: '#FFF3E0',
+    paddingHorizontal: 14,
+    paddingVertical: 6,
+    borderRadius: 16,
+    marginTop: 4,
+  },
+  pendingText: {
+    fontSize: 12,
+    color: '#B8752E',
+    fontWeight: '600',
+  },
+  menuList: {
+    backgroundColor: '#F8F8F8',
+    borderRadius: 12,
+    overflow: 'hidden',
+  },
+  menuItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    paddingVertical: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#EEEEEE',
+  },
+  menuItemText: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#000000',
+  },
+  menuItemArrow: {
+    fontSize: 18,
+    color: '#BBBBBB',
   },
   logoutButton: {
     backgroundColor: '#FF3B30',

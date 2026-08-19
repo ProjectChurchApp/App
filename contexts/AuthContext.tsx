@@ -4,19 +4,14 @@ import { useRouter, useSegments } from 'expo-router';
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import * as api from '../utils/api';
 import { registerPushToken, unregisterPushToken } from '../utils/api';
-
-interface User {
-  loginID: string;
-  name: string;
-  role: string;
-}
+import { Role, User } from '../types/user';
 
 interface AuthContextType {
   user: User | null;
   isLoading: boolean;
   isAuthenticated: boolean;
   login: (loginID: string, password: string) => Promise<void>;
-  signup: (loginID: string, password: string, name: string, role: '목사' | '신도') => Promise<void>;
+  signup: (loginID: string, password: string, name: string, role: Role) => Promise<void>;
   logout: () => Promise<void>;
   refreshUser: () => Promise<void>;
 }
@@ -111,7 +106,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 };
 
   // signup은 isLoading 직접 관리 안 함 → login에 위임
-  const signup = async (loginID: string, password: string, name: string, role:'목사' | '신도') => {
+  const signup = async (loginID: string, password: string, name: string, role: Role) => {
     try {
       const response = await api.signup({ loginID, password, name, role });
       if (!response.success) {
