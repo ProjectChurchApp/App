@@ -10,6 +10,7 @@ export default function TabLayout() {
   const { user } = useAuth();
   const isPastor = user?.role === '목사' && user?.accountStatus === 'ACTIVE';
   const isAdmin = user?.role === '관리자';
+  const isMember = user?.role === '성도';
 
   return (
     <Tabs
@@ -53,6 +54,15 @@ export default function TabLayout() {
         options={{
           title: '중보기도',
           tabBarIcon: ({ color }) => <FontAwesome5 name="hands-helping" size={24} color={color} />,
+        }}
+      />
+
+      <Tabs.Screen
+        name="connect"
+        options={{
+          href: isMember ? undefined : null,
+          title: '목사님과 연결',
+          tabBarIcon: ({ color }) => <FontAwesome5 name="link" size={24} color={color} />,
         }}
       />
 

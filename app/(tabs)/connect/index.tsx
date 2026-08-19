@@ -1,10 +1,12 @@
-// app/(tabs)/profile/connect.tsx
+// app/(tabs)/connect/index.tsx
+// 성도 전용: 목사님과 연결 요청
 
 import { useBottomTabBarHeight } from '@react-navigation/bottom-tabs';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { useCallback, useState } from 'react';
 import { ActivityIndicator, Alert, FlatList, Platform, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useAuth } from '../../../contexts/AuthContext';
 import { Connection, ConnectionStatus, PastorOption } from '../../../types/connection';
 import { api } from '../../../utils/api';
 
@@ -18,6 +20,7 @@ export default function ConnectScreen() {
   const insets = useSafeAreaInsets();
   const tabBarHeight = useBottomTabBarHeight();
   const router = useRouter();
+  const { user } = useAuth();
 
   const [pastors, setPastors] = useState<PastorOption[]>([]);
   const [connection, setConnection] = useState<Connection | null>(null);
@@ -65,10 +68,19 @@ export default function ConnectScreen() {
   return (
     <View style={[styles.container, { paddingBottom: tabBarHeight }]}>
       <View style={[styles.header, { paddingTop: insets.top + 16 }]}>
-        <TouchableOpacity onPress={() => router.back()} activeOpacity={0.7}>
-          <Text style={styles.backButtonText}>← 뒤로</Text>
+        <View style={styles.headerTitleGroup}>
+          <Text style={styles.title}>목사님과 연결</Text>
+          <Text style={styles.subtitle}>연결하면 기도 공유가 가능해요</Text>
+        </View>
+        <TouchableOpacity
+          style={styles.avatar}
+          onPress={() => router.push('/(tabs)/profile')}
+          activeOpacity={0.8}
+        >
+          <Text style={styles.avatarText}>
+            {user?.name?.charAt(0).toUpperCase() ?? '?'}
+          </Text>
         </TouchableOpacity>
-        <Text style={styles.title}>목사님과 연결</Text>
       </View>
 
       {connection && (
@@ -125,12 +137,26 @@ export default function ConnectScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#FFFFFF' },
   header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
     paddingHorizontal: 20,
-    paddingBottom: 12,
+    paddingBottom: 16,
     gap: 8,
   },
-  backButtonText: { fontSize: 16, color: '#000000', fontWeight: '500' },
-  title: { fontSize: 24, fontWeight: 'bold', color: '#000000' },
+  headerTitleGroup: { flexShrink: 1 },
+  title: { fontSize: 28, fontWeight: 'bold', color: '#000000' },
+  subtitle: { fontSize: 13, color: '#999999', marginTop: 2 },
+  avatar: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: '#000000',
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexShrink: 0,
+  },
+  avatarText: { color: '#FFFFFF', fontSize: 15, fontWeight: 'bold' },
   statusCard: {
     marginHorizontal: 20,
     marginBottom: 12,

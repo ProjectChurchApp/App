@@ -54,12 +54,12 @@ export default function MyPrayerWriteScreen() {
       const msg = '먼저 목사님과 연결해주세요.';
       if (Platform.OS === 'web') {
         if (window.confirm(msg + ' 지금 연결 화면으로 이동할까요?')) {
-          router.push('/(tabs)/profile/connect' as any);
+          router.push('/(tabs)/connect' as any);
         }
       } else {
         Alert.alert('안내', msg, [
           { text: '취소', style: 'cancel' },
-          { text: '연결하기', onPress: () => router.push('/(tabs)/profile/connect' as any) },
+          { text: '연결하기', onPress: () => router.push('/(tabs)/connect' as any) },
         ]);
       }
       return;
