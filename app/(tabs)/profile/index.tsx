@@ -1,7 +1,7 @@
 // app/(tabs)/profile/index.tsx
 
 import { useBottomTabBarHeight } from '@react-navigation/bottom-tabs';
-import { Alert, Platform, ScrollView, StyleSheet, Text, TouchableOpacity, useWindowDimensions, View } from 'react-native';
+import { ActivityIndicator, Alert, Platform, ScrollView, StyleSheet, Text, TouchableOpacity, useWindowDimensions, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuth } from '../../../contexts/AuthContext';
 
@@ -42,9 +42,10 @@ export default function ProfileScreen() {
 };
 
   if (!user) {
+    // 로그아웃 처리 중 로그인 화면으로 이동하기 직전의 짧은 순간에만 보임
     return (
-      <View style={[styles.container, { paddingTop: insets.top }]}>
-        <Text style={styles.errorText}>사용자 정보를 불러올 수 없습니다.</Text>
+      <View style={[styles.container, styles.centerBox, { paddingTop: insets.top }]}>
+        <ActivityIndicator size="large" color="#000000" />
       </View>
     );
   }
@@ -211,10 +212,9 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
   },
-  errorText: {
-    fontSize: 16,
-    color: '#FF3B30',
-    textAlign: 'center',
-    marginTop: 100,
+  centerBox: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
 });

@@ -25,7 +25,7 @@ const PAGE_SIZE = 10;
 const STATUS_LABELS: Record<PrayerStatus, string> = {
   PRAYING: '🙏 기도중',
   ANSWERED: '✅ 응답',
-  CLOSED: '🏁 종료',
+  CLOSED: '🕊️ 종료',
 };
 
 // ─── 날짜 포맷 ───────────────────────────────────────────
