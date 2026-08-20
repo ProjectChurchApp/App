@@ -113,12 +113,15 @@ const processQueue = (error: any, token: string | null = null) => {
   failedQueue = [];
 };
 
+const REFRESH_EXEMPT_ENDPOINTS = ['/auth/login', '/auth/signup', '/auth/refresh'];
+
 api.interceptors.response.use(
   (response) => response,
   async (error: AxiosError) => {
     const original = error.config as InternalAxiosRequestConfig & { _retry?: boolean };
+    const isRefreshExempt = REFRESH_EXEMPT_ENDPOINTS.some(e => original?.url?.includes(e));
 
-    if (error.response?.status === 401 && !original._retry) {
+    if (error.response?.status === 401 && !original._retry && !isRefreshExempt) {
       if (isRefreshing) {
         return new Promise((resolve, reject) => {
           failedQueue.push({ resolve, reject });
