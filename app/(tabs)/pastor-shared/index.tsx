@@ -18,16 +18,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuth } from '../../../contexts/AuthContext';
 import { PrayerItem } from '../../../types/prayer';
 import { api } from '../../../utils/api';
-
-function formatDate(iso: string): string {
-  const date = new Date(iso);
-  const now = new Date();
-  const diffDays = Math.floor((now.getTime() - date.getTime()) / (1000 * 60 * 60 * 24));
-  if (diffDays === 0)
-    return date.toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' });
-  if (diffDays < 7) return `${diffDays}일 전`;
-  return date.toLocaleDateString('ko-KR', { month: 'long', day: 'numeric' });
-}
+import { formatDate } from '../../../utils/date';
 
 export default function PastorSharedScreen() {
   const insets = useSafeAreaInsets();
@@ -136,7 +127,14 @@ export default function PastorSharedScreen() {
                 <Text style={styles.cardDate}>{formatDate(item.createdDate)}</Text>
               </View>
               <Text style={styles.cardContents} numberOfLines={2}>{item.contents}</Text>
-              <Text style={styles.cardWriter}>{item.writerName}</Text>
+              <View style={styles.cardWriterRow}>
+                <Text style={styles.cardWriter}>{item.writerName}</Text>
+                {item.intercessoryRequested && (
+                  <View style={styles.requestBadge}>
+                    <Text style={styles.requestBadgeText}>📢 중보기도 요청</Text>
+                  </View>
+                )}
+              </View>
 
               <TouchableOpacity
                 style={[styles.promoteButton, promotingID === item.id && styles.buttonDisabled]}
@@ -198,6 +196,14 @@ const styles = StyleSheet.create({
   cardDate: { fontSize: 12, color: '#999999', flexShrink: 0 },
   cardContents: { fontSize: 14, color: '#444444', lineHeight: 20 },
   cardWriter: { fontSize: 12, color: '#999999' },
+  cardWriterRow: { flexDirection: 'row', alignItems: 'center', gap: 6, flexWrap: 'wrap' },
+  requestBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 10,
+    backgroundColor: '#E8F0FE',
+  },
+  requestBadgeText: { fontSize: 11, fontWeight: '600', color: '#3A5FA8' },
 
   promoteButton: {
     marginTop: 4,

@@ -17,6 +17,7 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuth } from '../../../contexts/AuthContext';
 import { api } from '../../../utils/api';
+import { formatDate } from '../../../utils/date';
 
 // ─── 타입 ───────────────────────────────────────────────
 interface BoardItem {
@@ -26,18 +27,6 @@ interface BoardItem {
   writerName: string;
   status: 'READ' | 'UNREAD';
   createdDate: string;
-}
-
-// ─── 날짜 포맷 헬퍼 ──────────────────────────────────────
-function formatDate(iso: string): string {
-  const date = new Date(iso);
-  const now = new Date();
-  const diffDays = Math.floor((now.getTime() - date.getTime()) / (1000 * 60 * 60 * 24));
-
-  if (diffDays === 0)
-    return date.toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' });
-  if (diffDays < 7) return `${diffDays}일 전`;
-  return date.toLocaleDateString('ko-KR', { month: 'long', day: 'numeric' });
 }
 
 // ─── 상수 ───────────────────────────────────────────────

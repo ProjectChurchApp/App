@@ -1,15 +1,6 @@
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { CommentItem } from '../types/comment';
-
-function formatDate(iso: string): string {
-  const date = new Date(iso);
-  const now = new Date();
-  const diffDays = Math.floor((now.getTime() - date.getTime()) / (1000 * 60 * 60 * 24));
-  if (diffDays === 0)
-    return date.toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' });
-  if (diffDays < 7) return `${diffDays}일 전`;
-  return date.toLocaleDateString('ko-KR', { month: 'long', day: 'numeric' });
-}
+import { formatDate } from '../utils/date';
 
 interface CommentCardProps {
   comment: CommentItem;

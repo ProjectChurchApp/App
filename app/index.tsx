@@ -12,11 +12,10 @@ export default function SplashScreen() {
     <View style={styles.container}>
       <View style={styles.content}>
         <Image
-          source={require('../assets/images/heart-mark.png')}
+          source={require('../assets/images/logo_fix.png')}
           style={styles.logo}
           resizeMode="contain"
         />
-        <Text style={styles.title}>하트기도365</Text>
         <Text style={styles.subtitle}>HEART PRAYER 365</Text>
       </View>
 
@@ -40,17 +39,10 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-  // 3. 로고 스타일을 추가합니다.
   logo: {
-    width: 200,      // 원하는 가로 크기
-    height: 200,     // 원하는 세로 크기
-    marginBottom: 20, // 이미지와 텍스트 사이 간격
-  },
-  title: {
-    fontSize: 32,
-    fontWeight: 'bold',
-    color: '#000000',
-    marginBottom: 8,
+    width: 260,
+    height: 300,
+    marginBottom: 12,
   },
   subtitle: {
     fontSize: 16,

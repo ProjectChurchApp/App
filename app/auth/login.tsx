@@ -24,6 +24,7 @@ export default function LoginScreen() {
   const [loginID, setLoginID] = useState('');
   const [password, setPassword] = useState('');
   const [rememberID, setRememberID] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
 
   // 반응형: 최대 너비 제한 (태블릿 대응)
   const formWidth = Math.min(width * 0.9, 440);
@@ -88,15 +89,28 @@ export default function LoginScreen() {
                 editable={!isLoading}
               />
 
-              <TextInput
-                style={styles.input}
-                placeholder="비밀번호"
-                placeholderTextColor="#999"
-                value={password}
-                onChangeText={setPassword}
-                secureTextEntry
-                editable={!isLoading}
-              />
+              <View style={styles.passwordRow}>
+                <TextInput
+                  style={styles.passwordInput}
+                  placeholder="비밀번호"
+                  placeholderTextColor="#999"
+                  value={password}
+                  onChangeText={setPassword}
+                  secureTextEntry={!showPassword}
+                  editable={!isLoading}
+                />
+                <TouchableOpacity
+                  style={styles.passwordToggle}
+                  onPress={() => setShowPassword((prev) => !prev)}
+                  disabled={isLoading}
+                  activeOpacity={0.7}
+                  accessibilityRole="button"
+                  accessibilityLabel={showPassword ? '비밀번호 숨기기' : '비밀번호 표시'}>
+                  <Text style={styles.passwordToggleText}>
+                    {showPassword ? '숨김' : '표시'}
+                  </Text>
+                </TouchableOpacity>
+              </View>
 
               <TouchableOpacity
                 style={styles.rememberRow}
@@ -174,6 +188,30 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
     fontSize: 16,
     backgroundColor: '#F9F9F9',
+  },
+  passwordRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#DDDDDD',
+    borderRadius: 8,
+    backgroundColor: '#F9F9F9',
+    paddingRight: 8,
+  },
+  passwordInput: {
+    flex: 1,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    fontSize: 16,
+  },
+  passwordToggle: {
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+  },
+  passwordToggleText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#666666',
   },
   rememberRow: {
     flexDirection: 'row',

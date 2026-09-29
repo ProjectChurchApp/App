@@ -20,6 +20,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import { CommentItem } from '../../types/comment';
 import { PrayerItem, PrayerStatus } from '../../types/prayer';
 import { api } from '../../utils/api';
+import { formatDateFull, formatDateOnly } from '../../utils/date';
 import { CommentInputBar, CommentList } from '../CommentSection';
 
 type PrayerDetail = PrayerItem;
@@ -29,17 +30,6 @@ const STATUS_LABELS: Record<PrayerStatus, string> = {
   ANSWERED: '✅ 응답',
   CLOSED: '🔚 종료',
 };
-
-// ─── 날짜 포맷 ───────────────────────────────────────────
-function formatDateFull(iso: string): string {
-  return new Date(iso).toLocaleString('ko-KR', {
-    year: 'numeric',
-    month: 'long',
-    day: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-  });
-}
 
 // ─── 메인 화면 ───────────────────────────────────────────
 export function PrayerDetailScreen() {
@@ -119,7 +109,11 @@ export function PrayerDetailScreen() {
     setIsUpdatingStatus(true);
     try {
       await api.put(`/prayer/${id}/status`, { status });
-      setPrayer({ ...prayer, status });
+      setPrayer({
+        ...prayer,
+        status,
+        statusChangedAt: status === 'PRAYING' ? null : new Date().toISOString(),
+      });
     } catch (e: any) {
       const msg = e?.response?.data?.message ?? e?.message ?? '오류가 발생했습니다.';
       Platform.OS === 'web' ? window.alert(msg) : Alert.alert('오류', msg);
@@ -233,7 +227,8 @@ export function PrayerDetailScreen() {
 
   const isPromoted = prayer.boardStage === 'INTERCESSORY';
   const isOwner = prayer.writerLoginID === user?.loginID;
-  const canManage = isPromoted ? isPastor : isOwner;
+  const isPromotingPastor = isPastor && prayer.promotedByLoginID === user?.loginID;
+  const canManage = isPromoted ? isPromotingPastor : isOwner;
   const canPromote = isPastor && prayer.boardStage === 'SHARED_WITH_PASTOR';
 
   return (
@@ -250,15 +245,13 @@ export function PrayerDetailScreen() {
 
         {canManage && (
           <View style={styles.headerActions}>
-            {!isPromoted && (
-              <TouchableOpacity
-                style={styles.editButton}
-                onPress={() => router.push(`/(tabs)/my-prayer/write?id=${id}`)}
-                activeOpacity={0.8}
-              >
-                <Text style={styles.editButtonText}>수정</Text>
-              </TouchableOpacity>
-            )}
+            <TouchableOpacity
+              style={styles.editButton}
+              onPress={() => router.push(`/(tabs)/my-prayer/write?id=${id}`)}
+              activeOpacity={0.8}
+            >
+              <Text style={styles.editButtonText}>수정</Text>
+            </TouchableOpacity>
             <TouchableOpacity
               style={[styles.deleteButton, isDeleting && styles.buttonDisabled]}
               onPress={handleDelete}
@@ -296,16 +289,24 @@ export function PrayerDetailScreen() {
                 <Text style={styles.createdDate}>{formatDateFull(prayer.createdDate)}</Text>
               </View>
             </View>
-            {!isPromoted && (
-              <View style={[
-                styles.visibilityBadge,
-                prayer.visibility === 'PRIVATE' ? styles.badgePrivate : styles.badgePastor
-              ]}>
-                <Text style={styles.visibilityText}>
-                  {prayer.visibility === 'PRIVATE' ? '🔒 나만보기' : '🙏 목사님께'}
-                </Text>
-              </View>
-            )}
+            <View style={[
+              styles.visibilityBadge,
+              isPromoted
+                ? styles.badgeIntercessory
+                : prayer.visibility === 'PRIVATE'
+                  ? styles.badgePrivate
+                  : styles.badgePastor
+            ]}>
+              <Text style={styles.visibilityText}>
+                {isPromoted
+                  ? '📢 중보기도'
+                  : prayer.visibility === 'PRIVATE'
+                    ? '🔒 나만보기'
+                    : prayer.intercessoryRequested
+                      ? '📢 중보기도 요청'
+                      : '🙏 목사님만 기도'}
+              </Text>
+            </View>
           </View>
 
           <Text style={styles.articleTitle}>{prayer.title}</Text>
@@ -335,6 +336,12 @@ export function PrayerDetailScreen() {
               </TouchableOpacity>
             ))}
           </View>
+
+          {prayer.statusChangedAt && prayer.status !== 'PRAYING' && (
+            <Text style={styles.statusChangedText}>
+              {prayer.status === 'ANSWERED' ? '응답' : '종료'} · {formatDateOnly(prayer.statusChangedAt)}
+            </Text>
+          )}
 
           {/* 중보기도로 공유 (목사 전용) */}
           {canPromote && (
@@ -446,6 +453,7 @@ const styles = StyleSheet.create({
   },
   badgePrivate: { backgroundColor: '#F0F0F0' },
   badgePastor: { backgroundColor: '#FFF3E0' },
+  badgeIntercessory: { backgroundColor: '#E8F0FE' },
   visibilityText: { fontSize: 11, fontWeight: '600', color: '#666666' },
   articleTitle: { fontSize: 24, fontWeight: 'bold', color: '#000000', lineHeight: 32 },
   divider: { height: 1, backgroundColor: '#EEEEEE', marginVertical: 4 },
@@ -463,6 +471,7 @@ const styles = StyleSheet.create({
   statusButtonDisabled: { opacity: 0.5 },
   statusButtonText: { fontSize: 13, fontWeight: '600', color: '#666666' },
   statusButtonTextActive: { color: '#FFFFFF' },
+  statusChangedText: { fontSize: 12, color: '#888888', marginTop: 2 },
 
   // 중보기도 공유
   promoteButton: {

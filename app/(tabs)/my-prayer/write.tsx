@@ -19,6 +19,35 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Connection } from '../../../types/connection';
 import { api } from '../../../utils/api';
 
+// ─── 공개 범위 선택지 ────────────────────────────────────
+type VisibilityChoice = 'PRIVATE' | 'PASTOR_ONLY' | 'INTERCESSORY';
+
+const VISIBILITY_OPTIONS: {
+  key: VisibilityChoice;
+  label: string;
+  desc: string;
+  needsPastor: boolean;
+}[] = [
+  {
+    key: 'PRIVATE',
+    label: '🔒 나만보기',
+    desc: '나만 볼 수 있어요. 개인적인 기도 기록으로 사용하세요.',
+    needsPastor: false,
+  },
+  {
+    key: 'PASTOR_ONLY',
+    label: '🙏 목사님만 기도',
+    desc: '연결된 목사님만 보고 함께 기도해요. 게시판에는 올라가지 않습니다.',
+    needsPastor: true,
+  },
+  {
+    key: 'INTERCESSORY',
+    label: '📢 중보기도',
+    desc: '목사님이 확인한 뒤 중보기도 게시판에 공유해요. 같은 목사님과 연결된 성도들이 함께 기도합니다.',
+    needsPastor: true,
+  },
+];
+
 export default function MyPrayerWriteScreen() {
   const { id } = useLocalSearchParams<{ id?: string }>();
   const isEditMode = !!id;
@@ -29,7 +58,7 @@ export default function MyPrayerWriteScreen() {
 
   const [title, setTitle] = useState('');
   const [contents, setContents] = useState('');
-  const [visibility, setVisibility] = useState<'PRIVATE' | 'PASTOR'>('PRIVATE');
+  const [choice, setChoice] = useState<VisibilityChoice>('PRIVATE');
   const [isLoading, setIsLoading] = useState(false);
   const [isFetching, setIsFetching] = useState(isEditMode);
   const [connection, setConnection] = useState<Connection | null>(null);
@@ -49,8 +78,8 @@ export default function MyPrayerWriteScreen() {
     })();
   }, []);
 
-  const handleSelectPastorVisibility = () => {
-    if (!hasApprovedPastor) {
+  const handleSelectChoice = (option: (typeof VISIBILITY_OPTIONS)[number]) => {
+    if (option.needsPastor && !hasApprovedPastor) {
       const msg = '먼저 목사님과 연결해주세요.';
       if (Platform.OS === 'web') {
         if (window.confirm(msg + ' 지금 연결 화면으로 이동할까요?')) {
@@ -64,7 +93,7 @@ export default function MyPrayerWriteScreen() {
       }
       return;
     }
-    setVisibility('PASTOR');
+    setChoice(option.key);
   };
 
   // ── 수정 모드: 기존 내용 불러오기 ─────────────────────
@@ -76,7 +105,13 @@ export default function MyPrayerWriteScreen() {
         const res = await api.get(`/prayer/${id}`);
         setTitle(res.data.title);
         setContents(res.data.contents);
-        setVisibility(res.data.visibility);
+        setChoice(
+          res.data.visibility === 'PRIVATE'
+            ? 'PRIVATE'
+            : res.data.intercessoryRequested
+              ? 'INTERCESSORY'
+              : 'PASTOR_ONLY'
+        );
       } catch (e: any) {
         const msg = e?.response?.data?.message ?? e?.message ?? '오류가 발생했습니다.';
         if (Platform.OS === 'web') {
@@ -113,19 +148,18 @@ export default function MyPrayerWriteScreen() {
     if (!validate()) return;
     setIsLoading(true);
 
+    const payload = {
+      title: title.trim(),
+      contents: contents.trim(),
+      visibility: choice === 'PRIVATE' ? 'PRIVATE' : 'PASTOR',
+      intercessoryRequested: choice === 'INTERCESSORY',
+    };
+
     try {
       if (isEditMode) {
-        await api.put(`/prayer/${id}`, {
-          title: title.trim(),
-          contents: contents.trim(),
-          visibility,
-        });
+        await api.put(`/prayer/${id}`, payload);
       } else {
-        await api.post('/prayer', {
-          title: title.trim(),
-          contents: contents.trim(),
-          visibility,
-        });
+        await api.post('/prayer', payload);
       }
       router.back();
     } catch (e: any) {
@@ -183,43 +217,44 @@ export default function MyPrayerWriteScreen() {
           {/* 공개 범위 선택 */}
           <View style={styles.fieldGroup}>
             <Text style={styles.label}>공개 범위</Text>
-            <View style={styles.visibilityRow}>
-              <TouchableOpacity
-                style={[
-                  styles.visibilityButton,
-                  visibility === 'PRIVATE' && styles.visibilityButtonActive,
-                ]}
-                onPress={() => setVisibility('PRIVATE')}
-                activeOpacity={0.8}
-              >
-                <Text style={[
-                  styles.visibilityButtonText,
-                  visibility === 'PRIVATE' && styles.visibilityButtonTextActive,
-                ]}>
-                  🔒 나만보기
-                </Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[
-                  styles.visibilityButton,
-                  visibility === 'PASTOR' && styles.visibilityButtonActive,
-                ]}
-                onPress={handleSelectPastorVisibility}
-                activeOpacity={0.8}
-              >
-                <Text style={[
-                  styles.visibilityButtonText,
-                  visibility === 'PASTOR' && styles.visibilityButtonTextActive,
-                ]}>
-                  🙏 목사님께
-                </Text>
-              </TouchableOpacity>
+
+            <View style={styles.visibilityColumn}>
+              {VISIBILITY_OPTIONS.map((option) => {
+                const selected = choice === option.key;
+                const locked = option.needsPastor && !hasApprovedPastor;
+
+                return (
+                  <TouchableOpacity
+                    key={option.key}
+                    style={[
+                      styles.visibilityOption,
+                      selected && styles.visibilityOptionActive,
+                      locked && styles.visibilityOptionLocked,
+                    ]}
+                    onPress={() => handleSelectChoice(option)}
+                    activeOpacity={0.8}
+                  >
+                    <Text
+                      style={[
+                        styles.visibilityOptionLabel,
+                        selected && styles.visibilityOptionLabelActive,
+                      ]}
+                    >
+                      {option.label}
+                    </Text>
+                    <Text
+                      style={[
+                        styles.visibilityOptionDesc,
+                        selected && styles.visibilityOptionDescActive,
+                      ]}
+                    >
+                      {option.desc}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
             </View>
-            <Text style={styles.visibilityDesc}>
-              {visibility === 'PRIVATE'
-                ? '나만 볼 수 있어요. 개인적인 기도 기록으로 사용하세요.'
-                : '목사님께 기도 요청을 전달해요. 목사님께 알림이 전송됩니다.'}
-            </Text>
+
             {!hasApprovedPastor && (
               <Text style={styles.visibilityHint}>
                 아직 연결된 목사님이 없어요. 프로필에서 먼저 연결해주세요.
@@ -307,33 +342,33 @@ const styles = StyleSheet.create({
   },
 
   // 공개 범위
-  visibilityRow: { flexDirection: 'row', gap: 10 },
-  visibilityButton: {
-    flex: 1,
+  visibilityColumn: { gap: 8 },
+  visibilityOption: {
     paddingVertical: 12,
+    paddingHorizontal: 14,
     borderRadius: 10,
     backgroundColor: '#F4F4F4',
-    alignItems: 'center',
     borderWidth: 2,
     borderColor: 'transparent',
+    gap: 4,
   },
-  visibilityButtonActive: {
+  visibilityOptionActive: {
     backgroundColor: '#000000',
     borderColor: '#000000',
   },
-  visibilityButtonText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#666666',
+  visibilityOptionLocked: { opacity: 0.55 },
+  visibilityOptionLabel: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#333333',
   },
-  visibilityButtonTextActive: {
-    color: '#FFFFFF',
-  },
-  visibilityDesc: {
+  visibilityOptionLabelActive: { color: '#FFFFFF' },
+  visibilityOptionDesc: {
     fontSize: 12,
-    color: '#999999',
+    color: '#888888',
     lineHeight: 18,
   },
+  visibilityOptionDescActive: { color: '#CCCCCC' },
   visibilityHint: {
     fontSize: 12,
     color: '#B8752E',

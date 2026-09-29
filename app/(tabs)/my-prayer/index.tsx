@@ -18,6 +18,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuth } from '../../../contexts/AuthContext';
 import { PrayerItem, PrayerStatus } from '../../../types/prayer';
 import { api } from '../../../utils/api';
+import { formatDate } from '../../../utils/date';
 
 // ─── 상수 ───────────────────────────────────────────────
 const PAGE_SIZE = 10;
@@ -27,17 +28,6 @@ const STATUS_LABELS: Record<PrayerStatus, string> = {
   ANSWERED: '✅ 응답',
   CLOSED: '🔚 종료',
 };
-
-// ─── 날짜 포맷 ───────────────────────────────────────────
-function formatDate(iso: string): string {
-  const date = new Date(iso);
-  const now = new Date();
-  const diffDays = Math.floor((now.getTime() - date.getTime()) / (1000 * 60 * 60 * 24));
-  if (diffDays === 0)
-    return date.toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' });
-  if (diffDays < 7) return `${diffDays}일 전`;
-  return date.toLocaleDateString('ko-KR', { month: 'long', day: 'numeric' });
-}
 
 // ─── 카드 컴포넌트 ───────────────────────────────────────
 function PrayerCard({ item, onPress, onTogglePray }: {
@@ -60,10 +50,20 @@ function PrayerCard({ item, onPress, onTogglePray }: {
           </View>
           <View style={[
             styles.visibilityBadge,
-            item.visibility === 'PRIVATE' ? styles.badgePrivate : styles.badgePastor
+            item.boardStage === 'INTERCESSORY'
+              ? styles.badgeIntercessory
+              : item.visibility === 'PRIVATE'
+                ? styles.badgePrivate
+                : styles.badgePastor
           ]}>
             <Text style={styles.visibilityText}>
-              {item.visibility === 'PRIVATE' ? '🔒 나만보기' : '🙏 목사님께'}
+              {item.boardStage === 'INTERCESSORY'
+                ? '📢 중보기도'
+                : item.visibility === 'PRIVATE'
+                  ? '🔒 나만보기'
+                  : item.intercessoryRequested
+                    ? '📢 중보기도 요청'
+                    : '🙏 목사님만 기도'}
             </Text>
           </View>
         </View>
@@ -368,6 +368,7 @@ const styles = StyleSheet.create({
   },
   badgePrivate: { backgroundColor: '#F0F0F0' },
   badgePastor: { backgroundColor: '#FFF3E0' },
+  badgeIntercessory: { backgroundColor: '#E8F0FE' },
   visibilityText: { fontSize: 11, fontWeight: '600', color: '#666666' },
 
   // 기도해요 버튼

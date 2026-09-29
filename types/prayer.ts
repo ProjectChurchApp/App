@@ -13,9 +13,12 @@ export interface PrayerItem {
   visibility: PrayerVisibility;
   boardStage: PrayerBoardStage;
   status: PrayerStatus;
+  statusChangedAt: string | null;
   prayerCount: number;
   hasPrayed: boolean;
+  intercessoryRequested: boolean;
   promotedByName: string | null;
+  promotedByLoginID: string | null;
   promotedAt: string | null;
   createdDate: string;
 }

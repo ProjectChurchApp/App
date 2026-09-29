@@ -21,19 +21,9 @@ import { useAuth } from '../../../contexts/AuthContext';
 import { BoardItem } from '../../../types/board';
 import { CommentItem } from '../../../types/comment';
 import { api } from '../../../utils/api';
+import { formatDateFull } from '../../../utils/date';
 
 type BoardDetail = BoardItem;
-
-// ─── 날짜 포맷 ───────────────────────────────────────────
-function formatDateFull(iso: string): string {
-  return new Date(iso).toLocaleString('ko-KR', {
-    year: 'numeric',
-    month: 'long',
-    day: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-  });
-}
 
 // ─── 메인 화면 ───────────────────────────────────────────
 export default function BoardDetailScreen() {
