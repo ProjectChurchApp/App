@@ -10,6 +10,7 @@ import { errorMessage, useFeedback } from '../../../components/ui/Feedback';
 import {
   Avatar,
   EmptyState,
+  FilterTabs,
   FAB,
   ScreenHeader,
   SkeletonList,
@@ -165,25 +166,7 @@ export default function BoardScreen() {
       </View>
 
       {/* 필터 */}
-      <View style={styles.filterRow}>
-        {FILTERS.map((f) => {
-          const selected = filterStatus === f.value;
-          return (
-            <Pressable
-              key={f.value}
-              onPress={() => setFilterStatus(f.value)}
-              accessibilityRole="tab"
-              accessibilityState={{ selected }}
-              android_ripple={{ color: 'rgba(107,45,107,0.15)' }}
-              style={[styles.filterChip, selected && styles.filterChipSelected]}
-            >
-              <Text style={[styles.filterText, selected && styles.filterTextSelected]}>
-                {f.label}
-              </Text>
-            </Pressable>
-          );
-        })}
-      </View>
+      <FilterTabs options={FILTERS} value={filterStatus} onChange={setFilterStatus} />
 
       {/* 목록 */}
       {isLoading ? (
@@ -273,30 +256,6 @@ const styles = StyleSheet.create({
   },
 
   // 필터
-  filterRow: {
-    flexDirection: 'row',
-    gap: Spacing.sm,
-    paddingHorizontal: Spacing.xl,
-    paddingBottom: Spacing.md,
-  },
-  filterChip: {
-    paddingHorizontal: Spacing.lg,
-    paddingVertical: 7,
-    borderRadius: Radius.full,
-    borderWidth: 1,
-    borderColor: Palette.outline,
-    overflow: 'hidden',
-  },
-  filterChipSelected: {
-    backgroundColor: Palette.primaryContainer,
-    borderColor: Palette.primaryContainer,
-  },
-  filterText: {
-    fontSize: Type.label.fontSize,
-    fontWeight: Type.label.fontWeight,
-    color: Palette.onSurfaceVariant,
-  },
-  filterTextSelected: { color: Palette.onPrimaryContainer },
 
   // 목록
   listContent: { paddingHorizontal: Spacing.xl, paddingTop: Spacing.xs },

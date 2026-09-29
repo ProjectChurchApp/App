@@ -4,11 +4,12 @@
 import { useBottomTabBarHeight } from '@react-navigation/bottom-tabs';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { useCallback, useState } from 'react';
-import { ActivityIndicator, Alert, FlatList, Platform, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, FlatList, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuth } from '../../../contexts/AuthContext';
 import { Connection, ConnectionStatus, PastorOption } from '../../../types/connection';
 import { api } from '../../../utils/api';
+import { useFeedback } from '../../../components/ui/Feedback';
 
 const STATUS_LABELS: Record<ConnectionStatus, string> = {
   PENDING: '승인 대기 중',
@@ -18,6 +19,7 @@ const STATUS_LABELS: Record<ConnectionStatus, string> = {
 
 export default function ConnectScreen() {
   const insets = useSafeAreaInsets();
+  const { toast } = useFeedback();
   const tabBarHeight = useBottomTabBarHeight();
   const router = useRouter();
   const { user } = useAuth();
@@ -38,7 +40,7 @@ export default function ConnectScreen() {
       setConnection(connectionRes.data);
     } catch (e: any) {
       const msg = e?.response?.data?.message ?? e?.message ?? '오류가 발생했습니다.';
-      Platform.OS === 'web' ? window.alert(msg) : Alert.alert('오류', msg);
+      toast(msg, 'error');
     } finally {
       setIsLoading(false);
     }
@@ -57,7 +59,7 @@ export default function ConnectScreen() {
       await fetchData();
     } catch (e: any) {
       const msg = e?.response?.data?.message ?? e?.message ?? '오류가 발생했습니다.';
-      Platform.OS === 'web' ? window.alert(msg) : Alert.alert('오류', msg);
+      toast(msg, 'error');
     } finally {
       setRequestingLoginID(null);
     }

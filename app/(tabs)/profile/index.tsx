@@ -1,120 +1,125 @@
 // app/(tabs)/profile/index.tsx
 
+import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import { useBottomTabBarHeight } from '@react-navigation/bottom-tabs';
-import { ActivityIndicator, Alert, Platform, ScrollView, StyleSheet, Text, TouchableOpacity, useWindowDimensions, View } from 'react-native';
+import { useRouter } from 'expo-router';
+import { ActivityIndicator, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useFeedback } from '../../../components/ui/Feedback';
+import { AppButton, Avatar, Chip, Divider, IconButton } from '../../../components/ui/primitives';
+import { ICON_SM, Palette, Radius, Spacing, Type } from '../../../constants/design';
 import { useAuth } from '../../../contexts/AuthContext';
 
 export default function ProfileScreen() {
   const { user, logout, isLoading } = useAuth();
-  const { width, height } = useWindowDimensions();
   const insets = useSafeAreaInsets();
   const tabBarHeight = useBottomTabBarHeight();
+  const router = useRouter();
+  const { confirm } = useFeedback();
 
-  // 반응형: 최대 너비 제한
-  const contentWidth = Math.min(width * 0.9, 440);
-  const avatarSize = Math.min(width * 0.22, 96);
-  const avatarFontSize = avatarSize * 0.4;
-
-  const handleLogout = () => {
-  console.log("로그아웃 실행 시도");
-
-  const logoutConfirm = async () => {
-      await logout();
+  const handleLogout = async () => {
+    const ok = await confirm({
+      title: '로그아웃할까요?',
+      message: '다시 이용하려면 아이디와 비밀번호를 입력해야 해요.',
+      confirmLabel: '로그아웃',
+      destructive: true,
+    });
+    if (ok) await logout();
   };
 
-  if (Platform.OS === 'web') {
-    // 웹 브라우저용 표준 confirm 사용
-    if (window.confirm('정말 로그아웃 하시겠습니까?')) {
-      logoutConfirm();
-    }
-  } else {
-    // 모바일용 네이티브 Alert 사용
-    Alert.alert(
-      '로그아웃',
-      '정말 로그아웃 하시겠습니까?',
-      [
-        { text: '취소', style: 'cancel' },
-        { text: '로그아웃', style: 'destructive', onPress: logoutConfirm },
-      ]
-    );
-  }
-};
-
   if (!user) {
-    // 로그아웃 처리 중 로그인 화면으로 이동하기 직전의 짧은 순간에만 보임
+    // 로그아웃 직후 로그인 화면으로 넘어가기 전 짧은 순간에만 보인다.
     return (
       <View style={[styles.container, styles.centerBox, { paddingTop: insets.top }]}>
-        <ActivityIndicator size="large" color="#000000" />
+        <ActivityIndicator size="large" color={Palette.primary} />
       </View>
     );
   }
 
-  const roleLabel = user.role;
-  const isPendingPastor = user.role === '목사' && user.accountStatus === 'PENDING_PASTOR_APPROVAL';
+  const isPendingPastor =
+    user.role === '목사' && user.accountStatus === 'PENDING_PASTOR_APPROVAL';
 
   return (
-    <View style={[styles.container, { paddingBottom: tabBarHeight }]}>
-      {/* 헤더 */}
-      <View style={[styles.header, { paddingTop: insets.top + 16 }]}>
-        <Text style={styles.title}>프로필</Text>
+    <View style={styles.container}>
+      <View style={[styles.appBar, { paddingTop: insets.top + Spacing.xs }]}>
+        <IconButton
+          icon="arrow-left"
+          label="뒤로"
+          onPress={() => router.back()}
+          tone={Palette.onSurface}
+        />
       </View>
 
       <ScrollView
-        style={styles.scrollView}
-        contentContainerStyle={[
-          styles.scrollContent,
-          { minHeight: height - insets.top - tabBarHeight - 70 },
-        ]}
+        contentContainerStyle={[styles.content, { paddingBottom: tabBarHeight + Spacing.xxxl }]}
         showsVerticalScrollIndicator={false}
-        bounces={false}>
+      >
+        <View style={styles.identity}>
+          <Avatar name={user.name} size={88} />
+          <Text style={styles.name}>{user.name}</Text>
+          <Text style={styles.loginID}>@{user.loginID}</Text>
 
-        {/* 화면 중앙 정렬 래퍼 */}
-        <View style={styles.centerWrapper}>
-          <View style={[styles.card, { width: contentWidth }]}>
-            {/* 아바타 영역 */}
-            <View style={styles.userInfo}>
-              <View
-                style={[
-                  styles.avatar,
-                  {
-                    width: avatarSize,
-                    height: avatarSize,
-                    borderRadius: avatarSize / 2,
-                  },
-                ]}>
-                <Text style={[styles.avatarText, { fontSize: avatarFontSize }]}>
-                  {user.name.charAt(0).toUpperCase()}
-                </Text>
-              </View>
-
-              <Text style={[styles.name, { fontSize: Math.min(width * 0.06, 24) }]}>
-                {user.name}
-              </Text>
-              <Text style={styles.loginID}>@{user.loginID}</Text>
-
-              <View style={styles.roleBadge}>
-                <Text style={styles.roleText}>{roleLabel}</Text>
-              </View>
-
-              {isPendingPastor && (
-                <View style={styles.pendingBadge}>
-                  <Text style={styles.pendingText}>관리자 승인 대기 중</Text>
-                </View>
-              )}
-            </View>
-
-            {/* 로그아웃 버튼 */}
-            <TouchableOpacity
-              style={[styles.logoutButton, isLoading && styles.logoutButtonDisabled]}
-              onPress={handleLogout}
-              disabled={isLoading}
-              activeOpacity={0.8}>
-              <Text style={styles.logoutButtonText}>
-                {isLoading ? '처리 중...' : '로그아웃'}
-              </Text>
-            </TouchableOpacity>
+          <View style={styles.badges}>
+            <Chip
+              tone={{
+                label: user.role,
+                fg: Palette.onPrimaryContainer,
+                bg: Palette.primaryContainer,
+              }}
+            />
+            {isPendingPastor && (
+              <Chip
+                tone={{
+                  label: '관리자 승인 대기 중',
+                  fg: Palette.onWarningContainer,
+                  bg: Palette.warningContainer,
+                }}
+              />
+            )}
           </View>
+        </View>
+
+        {isPendingPastor && (
+          <View style={styles.notice}>
+            <MaterialCommunityIcons
+              name="clock-outline"
+              size={ICON_SM}
+              color={Palette.onWarningContainer}
+            />
+            <Text style={styles.noticeText}>
+              관리자가 목사님 권한을 승인하면 성도 관리와 중보기도 기능을 쓸 수 있어요.
+            </Text>
+          </View>
+        )}
+
+        <Divider style={styles.hr} />
+
+        <View style={styles.rows}>
+          <View style={styles.row}>
+            <Text style={styles.rowLabel}>아이디</Text>
+            <Text style={styles.rowValue}>{user.loginID}</Text>
+          </View>
+          <View style={styles.row}>
+            <Text style={styles.rowLabel}>역할</Text>
+            <Text style={styles.rowValue}>{user.role}</Text>
+          </View>
+          <View style={styles.row}>
+            <Text style={styles.rowLabel}>계정 상태</Text>
+            <Text style={styles.rowValue}>
+              {user.accountStatus === 'ACTIVE' ? '사용 중' : '승인 대기'}
+            </Text>
+          </View>
+        </View>
+
+        <View style={styles.logoutWrap}>
+          <AppButton
+            label="로그아웃"
+            icon="logout"
+            variant="outlined"
+            fullWidth
+            onPress={handleLogout}
+            loading={isLoading}
+          />
         </View>
       </ScrollView>
     </View>
@@ -122,99 +127,51 @@ export default function ProfileScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#FFFFFF',
-  },
-  header: {
-    paddingHorizontal: 20,
-    paddingBottom: 12,
-  },
-  title: {
-    fontSize: 32,
-    fontWeight: 'bold',
-    color: '#000000',
-  },
-  scrollView: {
-    flex: 1,
-  },
-  scrollContent: {
-    flexGrow: 1,
-    justifyContent: 'center', // 수직 중앙
-    alignItems: 'center',     // 수평 중앙
-    paddingVertical: 40,
-  },
-  centerWrapper: {
-    width: '100%',
-    alignItems: 'center',
-    paddingHorizontal: 20,
-  },
-  card: {
-    gap: 32,
-  },
-  userInfo: {
-    alignItems: 'center',
-    gap: 8,
-  },
-  avatar: {
-    backgroundColor: '#000000',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 8,
-  },
-  avatarText: {
-    fontWeight: 'bold',
-    color: '#FFFFFF',
-  },
+  container: { flex: 1, backgroundColor: Palette.background },
+  centerBox: { alignItems: 'center', justifyContent: 'center' },
+
+  appBar: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: Spacing.sm },
+  content: { paddingHorizontal: Spacing.xxl, paddingTop: Spacing.sm },
+
+  identity: { alignItems: 'center', gap: Spacing.xs },
   name: {
-    fontWeight: 'bold',
-    color: '#000000',
+    fontSize: Type.headlineSmall.fontSize,
+    fontWeight: Type.headlineSmall.fontWeight,
+    letterSpacing: Type.headlineSmall.letterSpacing,
+    color: Palette.onSurface,
+    marginTop: Spacing.md,
   },
-  loginID: {
-    fontSize: 16,
-    color: '#666666',
+  loginID: { fontSize: Type.bodyMedium.fontSize, color: Palette.onSurfaceVariant },
+  badges: { flexDirection: 'row', gap: Spacing.xs, marginTop: Spacing.sm, flexWrap: 'wrap', justifyContent: 'center' },
+
+  notice: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: Spacing.sm,
+    marginTop: Spacing.xl,
+    padding: Spacing.lg,
+    borderRadius: Radius.md,
+    backgroundColor: Palette.warningContainer,
   },
-  roleBadge: {
-    backgroundColor: '#F0F0F0',
-    paddingHorizontal: 16,
-    paddingVertical: 6,
-    borderRadius: 16,
-    marginTop: 4,
-  },
-  roleText: {
-    fontSize: 14,
-    color: '#666666',
-    fontWeight: '600',
-  },
-  pendingBadge: {
-    backgroundColor: '#FFF3E0',
-    paddingHorizontal: 14,
-    paddingVertical: 6,
-    borderRadius: 16,
-    marginTop: 4,
-  },
-  pendingText: {
-    fontSize: 12,
-    color: '#B8752E',
-    fontWeight: '600',
-  },
-  logoutButton: {
-    backgroundColor: '#FF3B30',
-    borderRadius: 8,
-    paddingVertical: 16,
-    alignItems: 'center',
-  },
-  logoutButtonDisabled: {
-    opacity: 0.5,
-  },
-  logoutButtonText: {
-    color: '#FFFFFF',
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  centerBox: {
+  noticeText: {
     flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
+    fontSize: Type.bodySmall.fontSize,
+    lineHeight: 20,
+    color: Palette.onWarningContainer,
   },
+
+  hr: { marginVertical: Spacing.xxl },
+
+  rows: { gap: Spacing.lg },
+  row: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: Spacing.md },
+  rowLabel: { fontSize: Type.bodyMedium.fontSize, color: Palette.onSurfaceVariant },
+  rowValue: {
+    fontSize: Type.bodyMedium.fontSize,
+    fontWeight: '600',
+    color: Palette.onSurface,
+    flexShrink: 1,
+    textAlign: 'right',
+  },
+
+  logoutWrap: { marginTop: Spacing.xxxl },
 });

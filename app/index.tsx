@@ -1,5 +1,6 @@
 import { useRouter } from 'expo-router';
 import { Image, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Palette, Radius, Type } from '../constants/design';
 
 export default function SplashScreen() {
   const router = useRouter();
@@ -46,19 +47,18 @@ const styles = StyleSheet.create({
   },
   subtitle: {
     fontSize: 16,
-    color: '#666666',
+    color: Palette.onSurfaceVariant,
   },
   button: {
-    borderWidth: 1,
-    borderColor: '#000000',
-    borderRadius: 8,
-    paddingVertical: 16,
+    backgroundColor: Palette.primary,
+    borderRadius: Radius.md,
+    paddingVertical: 18,
     alignItems: 'center',
     marginBottom: 20,
   },
   buttonText: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#000000',
+    fontSize: Type.titleMedium.fontSize,
+    fontWeight: '700',
+    color: Palette.onPrimary,
   },
 });

@@ -4,14 +4,16 @@
 import { useBottomTabBarHeight } from '@react-navigation/bottom-tabs';
 import { useFocusEffect } from 'expo-router';
 import { useCallback, useState } from 'react';
-import { ActivityIndicator, Alert, FlatList, Platform, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, FlatList, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuth } from '../../../contexts/AuthContext';
 import { PastorRequest } from '../../../types/user';
 import { api } from '../../../utils/api';
+import { useFeedback } from '../../../components/ui/Feedback';
 
 export default function AdminManageScreen() {
   const insets = useSafeAreaInsets();
+  const { toast } = useFeedback();
   const tabBarHeight = useBottomTabBarHeight();
   const { user } = useAuth();
 
@@ -26,7 +28,7 @@ export default function AdminManageScreen() {
       setRequests(res.data);
     } catch (e: any) {
       const msg = e?.response?.data?.message ?? e?.message ?? '오류가 발생했습니다.';
-      Platform.OS === 'web' ? window.alert(msg) : Alert.alert('오류', msg);
+      toast(msg, 'error');
     } finally {
       setIsLoading(false);
     }
@@ -45,7 +47,7 @@ export default function AdminManageScreen() {
       setRequests((prev) => prev.filter((r) => r.userId !== userId));
     } catch (e: any) {
       const msg = e?.response?.data?.message ?? e?.message ?? '오류가 발생했습니다.';
-      Platform.OS === 'web' ? window.alert(msg) : Alert.alert('오류', msg);
+      toast(msg, 'error');
     } finally {
       setProcessingID(null);
     }

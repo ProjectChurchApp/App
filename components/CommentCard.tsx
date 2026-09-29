@@ -1,8 +1,9 @@
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
-import { Palette, Radius, Spacing, Type } from '../constants/design';
+import { ICON_SM, Palette, Radius, Spacing, Type } from '../constants/design';
 import { CommentItem } from '../types/comment';
 import { formatDate } from '../utils/date';
+import { Avatar } from './ui/primitives';
 
 interface CommentCardProps {
   comment: CommentItem;
@@ -28,10 +29,11 @@ function ActionButton({
       onPress={onPress}
       accessibilityRole="button"
       accessibilityLabel={label}
-      android_ripple={{ color: 'rgba(107,45,107,0.15)', borderless: true, radius: 18 }}
+      hitSlop={6}
+      android_ripple={{ color: 'rgba(107,45,107,0.15)', borderless: true, radius: 20 }}
       style={({ pressed }) => [styles.action, pressed && { opacity: 0.6 }]}
     >
-      <MaterialCommunityIcons name={icon} size={17} color={tone} />
+      <MaterialCommunityIcons name={icon} size={ICON_SM} color={tone} />
     </Pressable>
   );
 }
@@ -44,25 +46,30 @@ export function CommentCard({
   onDelete,
 }: CommentCardProps) {
   const isMine = comment.writerLoginID === currentLoginID;
-  const canEdit = isMine;
   const canDelete = isMine || isPastor;
 
   return (
-    <View style={[styles.card, isMine && styles.cardMine]}>
-      <View style={styles.top}>
-        <View style={styles.meta}>
-          <View style={[styles.avatar, isMine && styles.avatarMine]}>
-            <Text style={styles.avatarText}>{comment.writerName.charAt(0).toUpperCase()}</Text>
-          </View>
-          <View style={styles.metaText}>
-            <Text style={styles.writer}>{comment.writerName}</Text>
-            <Text style={styles.date}>{formatDate(comment.createdDate)}</Text>
-          </View>
+    <View style={styles.row}>
+      <Avatar name={comment.writerName} size={36} />
+
+      <View style={styles.right}>
+        <View style={styles.head}>
+          <Text style={styles.writer} numberOfLines={1}>
+            {comment.writerName}
+          </Text>
+          {isMine && (
+            <View style={styles.mineTag}>
+              <Text style={styles.mineTagText}>나</Text>
+            </View>
+          )}
+          <Text style={styles.date}>{formatDate(comment.createdDate)}</Text>
         </View>
 
-        {(canEdit || canDelete) && (
+        <Text style={styles.contents}>{comment.contents}</Text>
+
+        {(isMine || canDelete) && (
           <View style={styles.actions}>
-            {canEdit && (
+            {isMine && (
               <ActionButton
                 icon="pencil-outline"
                 label="댓글 수정"
@@ -81,55 +88,38 @@ export function CommentCard({
           </View>
         )}
       </View>
-
-      <Text style={styles.contents}>{comment.contents}</Text>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  card: {
-    backgroundColor: Palette.surfaceContainer,
-    borderRadius: Radius.md,
-    borderWidth: 1,
-    borderColor: Palette.outlineVariant,
-    padding: Spacing.md,
-    gap: Spacing.sm,
-  },
-  cardMine: {
-    backgroundColor: '#FBF7FB',
-    borderColor: Palette.primaryContainer,
-  },
-  top: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: Spacing.sm },
-  meta: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, flexShrink: 1 },
-  metaText: { flexShrink: 1 },
-  avatar: {
-    width: 30,
-    height: 30,
-    borderRadius: Radius.full,
-    backgroundColor: Palette.onSurfaceVariant,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  avatarMine: { backgroundColor: Palette.primary },
-  avatarText: { color: Palette.onPrimary, fontSize: 12, fontWeight: '700' },
+  row: { flexDirection: 'row', gap: Spacing.md },
+  right: { flex: 1, minWidth: 0 },
+
+  head: { flexDirection: 'row', alignItems: 'center', gap: 6, flexWrap: 'wrap' },
   writer: {
-    fontSize: Type.labelSmall.fontSize + 1,
-    fontWeight: '600',
+    fontSize: Type.titleSmall.fontSize,
+    fontWeight: Type.titleSmall.fontWeight,
     color: Palette.onSurface,
+    flexShrink: 1,
   },
-  date: { fontSize: Type.labelSmall.fontSize, color: Palette.onSurfaceVariant },
-  actions: { flexDirection: 'row', gap: 2 },
-  action: {
-    width: 36,
-    height: 36,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderRadius: Radius.full,
+  mineTag: {
+    paddingHorizontal: 6,
+    paddingVertical: 1,
+    borderRadius: Radius.xs,
+    backgroundColor: Palette.primaryContainer,
   },
+  mineTagText: { fontSize: 10, fontWeight: '700', color: Palette.onPrimaryContainer },
+  date: { fontSize: Type.labelSmall.fontSize, fontWeight: '400', color: Palette.onSurfaceVariant },
+
   contents: {
-    fontSize: Type.bodyMedium.fontSize,
-    lineHeight: 22,
-    color: Palette.onSurface,
+    fontSize: Type.bodyLarge.fontSize,
+    lineHeight: Type.bodyLarge.lineHeight,
+    letterSpacing: Type.bodyLarge.letterSpacing,
+    color: '#2B2730',
+    marginTop: 5,
   },
+
+  actions: { flexDirection: 'row', gap: Spacing.lg, marginTop: Spacing.sm },
+  action: { minWidth: 28, minHeight: 28, alignItems: 'center', justifyContent: 'center' },
 });

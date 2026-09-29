@@ -2,7 +2,6 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
 import {
-  Alert,
   KeyboardAvoidingView,
   Platform,
   ScrollView,
@@ -14,6 +13,8 @@ import {
   View,
 } from 'react-native';
 import { Role } from '../../types/user';
+import { useFeedback } from '../../components/ui/Feedback';
+import { Palette } from '../../constants/design';
 
 // 백엔드 PasswordValidator와 동일한 규칙: 8자 이상, 영문/숫자/특수문자(@$!%*#?&) 각 1개 이상
 const PASSWORD_REGEX = /^(?=.*[A-Za-z])(?=.*\d)(?=.*[@$!%*#?&])[A-Za-z\d@$!%*#?&]{8,}$/;
@@ -29,17 +30,12 @@ export default function SignupScreen() {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [role, setRole] = useState<Extract<Role, '목사' | '성도'>>('성도');
   const [isLoading, setIsLoading] = useState(false);
+  const { toast } = useFeedback();
 
   // 반응형: 최대 너비 제한
   const formWidth = Math.min(width * 0.9, 440);
 
-  const showAlert = (message: string) => {
-    if (Platform.OS === 'web') {
-      alert(message);
-    } else {
-      Alert.alert('알림', message);
-    }
-  };
+  const showAlert = (message: string) => toast(message, 'error');
 
   const handleSignup = async () => {
     if (!loginID.trim()) {
@@ -193,7 +189,7 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 32,
     fontWeight: 'bold',
-    color: '#000000',
+    color: Palette.onSurface,
     marginBottom: 8,
   },
   subtitle: {
@@ -243,8 +239,8 @@ const styles = StyleSheet.create({
     backgroundColor: '#F9F9F9',
   },
   roleButtonActive: {
-    borderColor: '#000000',
-    backgroundColor: '#000000',
+    borderColor: Palette.primary,
+    backgroundColor: Palette.primary,
   },
   roleButtonText: {
     fontSize: 16,
@@ -255,7 +251,7 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   signupButton: {
-    backgroundColor: '#000000',
+    backgroundColor: Palette.primary,
     borderRadius: 8,
     paddingVertical: 16,
     alignItems: 'center',
@@ -280,7 +276,7 @@ const styles = StyleSheet.create({
   },
   linkBold: {
     fontSize: 14,
-    color: '#000000',
+    color: Palette.onSurface,
     fontWeight: '600',
   },
 });

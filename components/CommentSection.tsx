@@ -1,6 +1,6 @@
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
-import { Palette, Radius, Spacing, Type } from '../constants/design';
+import { ICON_SM, Palette, Radius, Spacing, Type } from '../constants/design';
 import { CommentItem } from '../types/comment';
 import { CommentCard } from './CommentCard';
 
@@ -22,17 +22,8 @@ export function CommentList({
   return (
     <View style={styles.section}>
       <View style={styles.sectionHead}>
-        <MaterialCommunityIcons
-          name="comment-text-outline"
-          size={17}
-          color={Palette.onSurfaceVariant}
-        />
         <Text style={styles.sectionTitle}>댓글</Text>
-        {comments.length > 0 && (
-          <View style={styles.countPill}>
-            <Text style={styles.countText}>{comments.length}</Text>
-          </View>
-        )}
+        {comments.length > 0 && <Text style={styles.count}>{comments.length}</Text>}
       </View>
 
       {comments.length === 0 ? (
@@ -40,16 +31,18 @@ export function CommentList({
           <Text style={styles.emptyText}>첫 댓글을 남겨보세요</Text>
         </View>
       ) : (
-        comments.map((comment) => (
-          <CommentCard
-            key={comment.id}
-            comment={comment}
-            currentLoginID={currentLoginID}
-            isPastor={isPastor}
-            onEdit={onEdit}
-            onDelete={onDelete}
-          />
-        ))
+        <View style={styles.list}>
+          {comments.map((comment) => (
+            <CommentCard
+              key={comment.id}
+              comment={comment}
+              currentLoginID={currentLoginID}
+              isPastor={isPastor}
+              onEdit={onEdit}
+              onDelete={onDelete}
+            />
+          ))}
+        </View>
       )}
     </View>
   );
@@ -62,7 +55,6 @@ interface CommentInputBarProps {
   isSubmitting: boolean;
   onSubmit: () => void;
   onCancelEdit: () => void;
-  bottomPadding: number;
 }
 
 export function CommentInputBar({
@@ -72,15 +64,14 @@ export function CommentInputBar({
   isSubmitting,
   onSubmit,
   onCancelEdit,
-  bottomPadding,
 }: CommentInputBarProps) {
   const canSubmit = commentText.trim().length > 0 && !isSubmitting;
 
   return (
-    <View style={[styles.inputWrapper, { paddingBottom: bottomPadding + Spacing.sm }]}>
+    <View style={styles.composer}>
       {editingComment && (
         <View style={styles.editingBanner}>
-          <MaterialCommunityIcons name="pencil-outline" size={14} color={Palette.onPrimaryContainer} />
+          <MaterialCommunityIcons name="pencil-outline" size={15} color={Palette.onPrimaryContainer} />
           <Text style={styles.editingText}>댓글 수정 중</Text>
           <Pressable onPress={onCancelEdit} hitSlop={10} accessibilityRole="button">
             <Text style={styles.editingCancel}>취소</Text>
@@ -93,7 +84,7 @@ export function CommentInputBar({
           style={styles.input}
           value={commentText}
           onChangeText={onChangeText}
-          placeholder="댓글을 입력하세요"
+          placeholder="따뜻한 말 한마디를 남겨주세요"
           placeholderTextColor={Palette.disabled}
           multiline
           maxLength={500}
@@ -112,8 +103,8 @@ export function CommentInputBar({
           ]}
         >
           <MaterialCommunityIcons
-            name={editingComment ? 'check' : 'send'}
-            size={20}
+            name={editingComment ? 'check' : 'arrow-up'}
+            size={ICON_SM}
             color={Palette.onPrimary}
           />
         </Pressable>
@@ -123,36 +114,22 @@ export function CommentInputBar({
 }
 
 const styles = StyleSheet.create({
-  section: {
-    gap: Spacing.sm,
-    paddingTop: Spacing.lg,
-    borderTopWidth: 1,
-    borderTopColor: Palette.outlineVariant,
-  },
-  sectionHead: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    marginBottom: Spacing.xs,
-  },
+  section: { gap: Spacing.md },
+  sectionHead: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   sectionTitle: {
-    fontSize: Type.titleSmall.fontSize,
-    fontWeight: '700',
+    fontSize: Type.titleMedium.fontSize,
+    fontWeight: Type.titleMedium.fontWeight,
+    letterSpacing: Type.titleMedium.letterSpacing,
     color: Palette.onSurface,
   },
-  countPill: {
-    minWidth: 22,
-    paddingHorizontal: 7,
-    paddingVertical: 1,
-    borderRadius: Radius.full,
-    backgroundColor: Palette.primaryContainer,
-    alignItems: 'center',
-  },
-  countText: {
-    fontSize: Type.labelSmall.fontSize,
+  count: {
+    fontSize: Type.titleMedium.fontSize,
     fontWeight: '700',
-    color: Palette.onPrimaryContainer,
+    color: Palette.primary,
   },
+
+  list: { gap: Spacing.lg },
+
   empty: {
     paddingVertical: Spacing.xxl,
     alignItems: 'center',
@@ -161,49 +138,40 @@ const styles = StyleSheet.create({
   },
   emptyText: { fontSize: Type.bodyMedium.fontSize, color: Palette.onSurfaceVariant },
 
-  inputWrapper: {
-    borderTopWidth: 1,
-    borderTopColor: Palette.outlineVariant,
-    paddingHorizontal: Spacing.lg,
-    paddingTop: Spacing.md,
-    backgroundColor: Palette.surface,
-  },
+  composer: { marginTop: Spacing.xl, gap: Spacing.sm },
   editingBanner: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    marginBottom: Spacing.sm,
     paddingHorizontal: Spacing.md,
-    paddingVertical: 6,
+    paddingVertical: 7,
     borderRadius: Radius.sm,
     backgroundColor: Palette.primaryContainer,
   },
   editingText: {
     flex: 1,
     fontSize: Type.labelSmall.fontSize,
-    color: Palette.onPrimaryContainer,
     fontWeight: '600',
+    color: Palette.onPrimaryContainer,
   },
-  editingCancel: {
-    fontSize: Type.labelSmall.fontSize,
-    fontWeight: '700',
-    color: Palette.danger,
-  },
+  editingCancel: { fontSize: Type.labelSmall.fontSize, fontWeight: '700', color: Palette.danger },
+
   inputRow: { flexDirection: 'row', alignItems: 'flex-end', gap: Spacing.sm },
   input: {
     flex: 1,
-    minHeight: 44,
-    maxHeight: 110,
-    backgroundColor: Palette.surfaceVariant,
-    borderRadius: Radius.xl,
+    minHeight: 48,
+    maxHeight: 120,
+    backgroundColor: Palette.track,
+    borderRadius: Radius.lg,
     paddingHorizontal: Spacing.lg,
     paddingVertical: Spacing.md,
     fontSize: Type.bodyMedium.fontSize,
+    lineHeight: Type.bodyMedium.lineHeight,
     color: Palette.onSurface,
   },
   submit: {
-    width: 44,
-    height: 44,
+    width: 48,
+    height: 48,
     borderRadius: Radius.full,
     backgroundColor: Palette.primary,
     alignItems: 'center',

@@ -4,18 +4,19 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
-  Alert,
   KeyboardAvoidingView,
   Platform,
   ScrollView,
   StyleSheet,
   Text,
   TextInput,
-  TouchableOpacity,
   useWindowDimensions,
   View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { errorMessage, useFeedback } from '../../../components/ui/Feedback';
+import { AppButton, IconButton, SectionLabel } from '../../../components/ui/primitives';
+import { Palette, Spacing, Type } from '../../../constants/design';
 import { useAuth } from '../../../contexts/AuthContext';
 import { api } from '../../../utils/api';
 
@@ -27,8 +28,8 @@ export default function BoardWriteScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const { user } = useAuth();
+  const { toast } = useFeedback();
 
-  // 🔐 목사 여부
   const isPastor = user?.role === '목사';
 
   const [title, setTitle] = useState('');
@@ -38,16 +39,13 @@ export default function BoardWriteScreen() {
 
   const contentWidth = Math.min(width * 0.95, 680);
 
-  // ── 권한 체크: 목사가 아니면 즉시 차단 ──────────────────
   useEffect(() => {
     if (!isPastor) {
-      const msg = '게시글 작성 권한이 없습니다.';
-      Platform.OS === 'web' ? window.alert(msg) : Alert.alert('접근 불가', msg);
+      toast('게시글은 목사님만 작성할 수 있어요.', 'error');
       router.back();
     }
   }, [isPastor]);
 
-  // ── 수정 모드: 기존 내용 불러오기 ─────────────────────
   useEffect(() => {
     if (!isEditMode || !isPastor) return;
 
@@ -57,13 +55,8 @@ export default function BoardWriteScreen() {
         setTitle(res.data.title);
         setContents(res.data.contents);
       } catch (e: any) {
-        const msg = e?.response?.data?.message ?? e?.message ?? '오류가 발생했습니다.';
-        if (Platform.OS === 'web') {
-          window.alert(msg);
-          router.back();
-        } else {
-          Alert.alert('오류', msg, [{ text: '확인', onPress: () => router.back() }]);
-        }
+        toast(errorMessage(e), 'error');
+        router.back();
       } finally {
         setIsFetching(false);
       }
@@ -72,36 +65,30 @@ export default function BoardWriteScreen() {
     fetchExisting();
   }, [id, isPastor]);
 
-  // ── 유효성 검사 ───────────────────────────────────────
-  const validate = () => {
+  const handleSubmit = async () => {
     if (!title.trim()) {
-      const msg = '제목을 입력해주세요.';
-      Platform.OS === 'web' ? window.alert(msg) : Alert.alert('알림', msg);
-      return false;
+      toast('제목을 입력해주세요.', 'error');
+      return;
     }
     if (!contents.trim()) {
-      const msg = '내용을 입력해주세요.';
-      Platform.OS === 'web' ? window.alert(msg) : Alert.alert('알림', msg);
-      return false;
+      toast('내용을 입력해주세요.', 'error');
+      return;
     }
-    return true;
-  };
 
-  // ── 제출 ──────────────────────────────────────────────
-  const handleSubmit = async () => {
-    if (!validate()) return;
     setIsLoading(true);
+    const payload = { title: title.trim(), contents: contents.trim() };
 
     try {
       if (isEditMode) {
-        await api.put(`/board/${id}`, { title: title.trim(), contents: contents.trim() });
+        await api.put(`/board/${id}`, payload);
+        toast('수정했어요.', 'success');
       } else {
-        await api.post('/board/write', { title: title.trim(), contents: contents.trim() });
+        await api.post('/board/write', payload);
+        toast('게시글을 올렸어요.', 'success');
       }
       router.back();
     } catch (e: any) {
-      const msg = e?.response?.data?.message ?? e?.message ?? '오류가 발생했습니다.';
-      Platform.OS === 'web' ? window.alert(msg) : Alert.alert('오류', msg);
+      toast(errorMessage(e), 'error');
     } finally {
       setIsLoading(false);
     }
@@ -112,7 +99,7 @@ export default function BoardWriteScreen() {
   if (isFetching) {
     return (
       <View style={[styles.container, styles.centerBox, { paddingTop: insets.top }]}>
-        <ActivityIndicator size="large" color="#000000" />
+        <ActivityIndicator size="large" color={Palette.primary} />
       </View>
     );
   }
@@ -122,45 +109,32 @@ export default function BoardWriteScreen() {
       style={styles.container}
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
     >
-      {/* 헤더 */}
-      <View style={[styles.header, { paddingTop: insets.top + 16 }]}>
-        <TouchableOpacity onPress={() => router.back()} activeOpacity={0.7}>
-          <Text style={styles.cancelText}>취소</Text>
-        </TouchableOpacity>
-
-        <Text style={styles.headerTitle}>
-          {isEditMode ? '게시글 수정' : '게시글 작성'}
-        </Text>
-
-        <TouchableOpacity
-          style={[styles.submitButton, isLoading && styles.submitButtonDisabled]}
+      <View style={[styles.appBar, { paddingTop: insets.top + Spacing.sm }]}>
+        <IconButton icon="close" label="취소" onPress={() => router.back()} />
+        <Text style={styles.appBarTitle}>{isEditMode ? '게시글 수정' : '게시글 작성'}</Text>
+        <AppButton
+          label={isEditMode ? '수정' : '등록'}
           onPress={handleSubmit}
-          disabled={isLoading}
-          activeOpacity={0.8}
-        >
-          <Text style={styles.submitButtonText}>
-            {isLoading ? '처리 중...' : isEditMode ? '수정' : '등록'}
-          </Text>
-        </TouchableOpacity>
+          loading={isLoading}
+          style={styles.submitButton}
+        />
       </View>
 
-      {/* 폼 */}
       <ScrollView
         style={styles.scrollView}
         contentContainerStyle={[styles.scrollContent, { alignItems: 'center' }]}
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
       >
-        <View style={[styles.formWrapper, { width: contentWidth }]}>
-          {/* 제목 */}
-          <View style={styles.fieldGroup}>
-            <Text style={styles.label}>제목</Text>
+        <View style={[styles.form, { width: contentWidth }]}>
+          <View style={styles.field}>
+            <SectionLabel>제목</SectionLabel>
             <TextInput
               style={styles.titleInput}
               value={title}
               onChangeText={setTitle}
-              placeholder="제목을 입력하세요"
-              placeholderTextColor="#AAAAAA"
+              placeholder="성도들에게 전할 소식을 적어주세요"
+              placeholderTextColor={Palette.disabled}
               maxLength={100}
               returnKeyType="next"
               editable={!isLoading}
@@ -168,17 +142,14 @@ export default function BoardWriteScreen() {
             <Text style={styles.charCount}>{title.length} / 100</Text>
           </View>
 
-          <View style={styles.divider} />
-
-          {/* 내용 */}
-          <View style={styles.fieldGroup}>
-            <Text style={styles.label}>내용</Text>
+          <View style={styles.field}>
+            <SectionLabel>내용</SectionLabel>
             <TextInput
               style={styles.contentsInput}
               value={contents}
               onChangeText={setContents}
-              placeholder="내용을 입력하세요"
-              placeholderTextColor="#AAAAAA"
+              placeholder="내용을 입력해주세요."
+              placeholderTextColor={Palette.disabled}
               multiline
               textAlignVertical="top"
               editable={!isLoading}
@@ -190,60 +161,53 @@ export default function BoardWriteScreen() {
   );
 }
 
-// ─── 스타일 ──────────────────────────────────────────────
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#FFFFFF' },
-  header: {
+  container: { flex: 1, backgroundColor: Palette.background },
+  centerBox: { alignItems: 'center', justifyContent: 'center' },
+
+  appBar: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 20,
-    paddingBottom: 12,
+    gap: Spacing.sm,
+    paddingHorizontal: Spacing.md,
+    paddingBottom: Spacing.md,
     borderBottomWidth: 1,
-    borderBottomColor: '#EEEEEE',
+    borderBottomColor: Palette.outlineVariant,
   },
-  cancelText: { fontSize: 16, color: '#666666', fontWeight: '500' },
-  headerTitle: { fontSize: 17, fontWeight: '700', color: '#000000' },
-  submitButton: {
-    backgroundColor: '#000000',
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 8,
+  appBarTitle: {
+    flex: 1,
+    textAlign: 'center',
+    fontSize: Type.titleMedium.fontSize,
+    fontWeight: Type.titleMedium.fontWeight,
+    color: Palette.onSurface,
   },
-  submitButtonDisabled: { opacity: 0.4 },
-  submitButtonText: { color: '#FFFFFF', fontSize: 14, fontWeight: '600' },
+  submitButton: { paddingHorizontal: Spacing.lg, minHeight: 40 },
+
   scrollView: { flex: 1 },
   scrollContent: {
     flexGrow: 1,
-    paddingHorizontal: 20,
-    paddingTop: 20,
-    paddingBottom: 40,
+    paddingHorizontal: Spacing.xl,
+    paddingTop: Spacing.xl,
+    paddingBottom: Spacing.xxxl,
   },
-  formWrapper: { gap: 16 },
-  fieldGroup: { gap: 8 },
-  label: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: '#999999',
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-  },
+  form: { gap: Spacing.xxl },
+  field: { gap: Spacing.sm },
+
   titleInput: {
-    fontSize: 20,
+    fontSize: Type.titleLarge.fontSize,
     fontWeight: '600',
-    color: '#000000',
-    paddingVertical: 8,
+    color: Palette.onSurface,
+    paddingVertical: Spacing.sm,
     borderBottomWidth: 1.5,
-    borderBottomColor: '#EEEEEE',
+    borderBottomColor: Palette.outlineVariant,
   },
-  charCount: { fontSize: 12, color: '#BBBBBB', textAlign: 'right' },
-  divider: { height: 1, backgroundColor: '#EEEEEE' },
+  charCount: { fontSize: Type.labelSmall.fontSize, color: Palette.disabled, textAlign: 'right' },
   contentsInput: {
-    fontSize: 16,
-    color: '#333333',
-    lineHeight: 26,
-    minHeight: 300,
-    paddingTop: 4,
+    fontSize: Type.reading.fontSize,
+    lineHeight: Type.reading.lineHeight,
+    color: Palette.onSurface,
+    minHeight: 280,
+    paddingTop: Spacing.xs,
   },
-  centerBox: { flex: 1, alignItems: 'center', justifyContent: 'center' },
 });

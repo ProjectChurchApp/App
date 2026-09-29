@@ -4,14 +4,16 @@
 import { useBottomTabBarHeight } from '@react-navigation/bottom-tabs';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { useCallback, useState } from 'react';
-import { ActivityIndicator, Alert, Platform, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuth } from '../../../contexts/AuthContext';
 import { Connection, MemberSummary } from '../../../types/connection';
 import { api } from '../../../utils/api';
+import { useFeedback } from '../../../components/ui/Feedback';
 
 export default function PastorManageScreen() {
   const insets = useSafeAreaInsets();
+  const { toast } = useFeedback();
   const tabBarHeight = useBottomTabBarHeight();
   const router = useRouter();
   const { user } = useAuth();
@@ -32,7 +34,7 @@ export default function PastorManageScreen() {
       setMembers(membersRes.data);
     } catch (e: any) {
       const msg = e?.response?.data?.message ?? e?.message ?? '오류가 발생했습니다.';
-      Platform.OS === 'web' ? window.alert(msg) : Alert.alert('오류', msg);
+      toast(msg, 'error');
     } finally {
       setIsLoading(false);
     }
@@ -51,7 +53,7 @@ export default function PastorManageScreen() {
       await fetchData();
     } catch (e: any) {
       const msg = e?.response?.data?.message ?? e?.message ?? '오류가 발생했습니다.';
-      Platform.OS === 'web' ? window.alert(msg) : Alert.alert('오류', msg);
+      toast(msg, 'error');
     } finally {
       setProcessingID(null);
     }

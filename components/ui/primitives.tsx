@@ -1,5 +1,6 @@
 // 앱 전반에서 재사용하는 UI 조각들.
-// Material 3의 패턴(칩, 카드, FAB, 세그먼트 버튼)을 따르되 앱의 기존 톤을 유지한다.
+// 세그먼트와 필터는 shadcn Tabs 구조를 따른다 — muted 트랙 위에 선택된 칸만 흰 캡슐로 떠오르고,
+// 칸 사이에는 선이 없다.
 
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import { ReactNode, useEffect, useRef } from 'react';
@@ -7,6 +8,7 @@ import {
   Animated,
   Platform,
   Pressable,
+  ScrollView,
   StyleProp,
   StyleSheet,
   Text,
@@ -14,24 +16,38 @@ import {
   View,
   ViewStyle,
 } from 'react-native';
-import { Elevation, MIN_TOUCH, Palette, Radius, Spacing, Type } from '../../constants/design';
+import {
+  Elevation,
+  ICON,
+  ICON_SM,
+  MIN_TOUCH,
+  Palette,
+  Radius,
+  Spacing,
+  Type,
+} from '../../constants/design';
 import type { ChipTone } from '../../constants/prayerMeta';
 
-const ripple = (color: string) => (Platform.OS === 'android' ? { color, borderless: false } : undefined);
+const ripple = (color: string, borderless = false, radius?: number) =>
+  Platform.OS === 'android' ? { color, borderless, radius } : undefined;
+
+const t = (style: (typeof Type)[keyof typeof Type]): TextStyle => ({
+  fontSize: style.fontSize,
+  fontWeight: style.fontWeight as TextStyle['fontWeight'],
+  lineHeight: style.lineHeight,
+  letterSpacing: style.letterSpacing,
+});
 
 // ─── 칩 ──────────────────────────────────────────────────
 export function Chip({
   tone,
-  icon,
   style,
 }: {
   tone: ChipTone;
-  icon?: keyof typeof MaterialCommunityIcons.glyphMap;
   style?: StyleProp<ViewStyle>;
 }) {
   return (
     <View style={[styles.chip, { backgroundColor: tone.bg }, style]}>
-      {icon && <MaterialCommunityIcons name={icon} size={13} color={tone.fg} />}
       <Text style={[styles.chipText, { color: tone.fg }]} numberOfLines={1}>
         {tone.label}
       </Text>
@@ -49,9 +65,8 @@ export function SurfaceCard({
   onPress?: () => void;
   style?: StyleProp<ViewStyle>;
 }) {
-  if (!onPress) {
-    return <View style={[styles.card, style]}>{children}</View>;
-  }
+  if (!onPress) return <View style={[styles.card, style]}>{children}</View>;
+
   return (
     <Pressable
       onPress={onPress}
@@ -90,27 +105,27 @@ export function AppButton({
   style?: StyleProp<ViewStyle>;
 }) {
   const v = BUTTON_VARIANTS[variant];
-  const isOff = disabled || loading;
+  const off = disabled || loading;
 
   return (
     <Pressable
       onPress={onPress}
-      disabled={isOff}
+      disabled={off}
       accessibilityRole="button"
-      accessibilityState={{ disabled: !!isOff }}
-      android_ripple={ripple(v.rippleColor)}
+      accessibilityState={{ disabled: !!off }}
+      android_ripple={ripple(v.ripple)}
       style={({ pressed }) => [
         styles.button,
-        { backgroundColor: v.bg, borderColor: v.border, borderWidth: v.border ? 1.5 : 0 },
+        { backgroundColor: v.bg, borderColor: v.border ?? 'transparent', borderWidth: v.border ? 1.5 : 0 },
         fullWidth && styles.buttonFull,
-        isOff && styles.buttonDisabled,
+        off && styles.buttonDisabled,
         pressed && Platform.OS !== 'android' && styles.buttonPressed,
         style,
       ]}
     >
-      {icon && <MaterialCommunityIcons name={icon} size={18} color={v.fg} />}
+      {icon && <MaterialCommunityIcons name={icon} size={ICON_SM} color={v.fg} />}
       <Text style={[styles.buttonText, { color: v.fg }]} numberOfLines={1}>
-        {loading ? '처리 중...' : label}
+        {loading ? '잠시만요...' : label}
       </Text>
     </Pressable>
   );
@@ -118,14 +133,52 @@ export function AppButton({
 
 const BUTTON_VARIANTS: Record<
   ButtonVariant,
-  { bg: string; fg: string; border?: string; rippleColor: string }
+  { bg: string; fg: string; border?: string; ripple: string }
 > = {
-  filled: { bg: Palette.primary, fg: Palette.onPrimary, rippleColor: 'rgba(255,255,255,0.22)' },
-  tonal: { bg: Palette.primaryContainer, fg: Palette.onPrimaryContainer, rippleColor: 'rgba(107,45,107,0.15)' },
-  outlined: { bg: 'transparent', fg: Palette.primary, border: Palette.outline, rippleColor: 'rgba(107,45,107,0.12)' },
-  text: { bg: 'transparent', fg: Palette.onSurfaceVariant, rippleColor: 'rgba(107,45,107,0.12)' },
-  danger: { bg: Palette.danger, fg: Palette.onDanger, rippleColor: 'rgba(255,255,255,0.22)' },
+  filled: { bg: Palette.primary, fg: Palette.onPrimary, ripple: 'rgba(255,255,255,0.22)' },
+  tonal: { bg: Palette.primaryContainer, fg: Palette.onPrimaryContainer, ripple: 'rgba(107,45,107,0.14)' },
+  outlined: { bg: 'transparent', fg: Palette.primary, border: Palette.outline, ripple: 'rgba(107,45,107,0.12)' },
+  text: { bg: 'transparent', fg: Palette.onSurfaceVariant, ripple: 'rgba(107,45,107,0.12)' },
+  danger: { bg: Palette.danger, fg: Palette.onDanger, ripple: 'rgba(255,255,255,0.22)' },
 };
+
+/** 화면 하단에 고정되는 주요 동작 버튼 */
+export function BottomAction({
+  label,
+  icon,
+  count,
+  onPress,
+  bottomInset,
+}: {
+  label: string;
+  icon?: keyof typeof MaterialCommunityIcons.glyphMap;
+  count?: number;
+  onPress: () => void;
+  bottomInset: number;
+}) {
+  return (
+    <View style={[styles.bottomBar, { paddingBottom: bottomInset + Spacing.lg }]}>
+      <Pressable
+        onPress={onPress}
+        accessibilityRole="button"
+        accessibilityLabel={count === undefined ? label : `${label}, 현재 ${count}회`}
+        android_ripple={ripple('rgba(255,255,255,0.22)')}
+        style={({ pressed }) => [
+          styles.bottomButton,
+          pressed && Platform.OS !== 'android' && { opacity: 0.9 },
+        ]}
+      >
+        {icon && <MaterialCommunityIcons name={icon} size={ICON} color={Palette.onPrimary} />}
+        <Text style={styles.bottomButtonText}>{label}</Text>
+        {count !== undefined && (
+          <View style={styles.bottomCount}>
+            <Text style={styles.bottomCountText}>{count}</Text>
+          </View>
+        )}
+      </Pressable>
+    </View>
+  );
+}
 
 // ─── FAB ─────────────────────────────────────────────────
 export function FAB({
@@ -149,49 +202,44 @@ export function FAB({
         styles.fab,
         { bottom: bottom + Spacing.lg },
         label ? styles.fabExtended : styles.fabRound,
-        pressed && Platform.OS !== 'android' && styles.fabPressed,
+        pressed && Platform.OS !== 'android' && { opacity: 0.9 },
       ]}
     >
-      <MaterialCommunityIcons name={icon} size={24} color={Palette.onPrimary} />
+      <MaterialCommunityIcons name={icon} size={ICON} color={Palette.onPrimary} />
       {label && <Text style={styles.fabLabel}>{label}</Text>}
     </Pressable>
   );
 }
 
-// ─── 세그먼트 버튼 ───────────────────────────────────────
+// ─── 세그먼트 / 필터 (shadcn Tabs 구조) ──────────────────
+type Segment<T extends string> = { value: T; label: string };
+
 export function SegmentedButtons<T extends string>({
   options,
   value,
   onChange,
   disabled,
+  style,
 }: {
-  options: { value: T; label: string }[];
+  options: Segment<T>[];
   value: T;
   onChange: (value: T) => void;
   disabled?: boolean;
+  style?: StyleProp<ViewStyle>;
 }) {
   return (
-    <View style={[styles.segmentRow, disabled && styles.segmentDisabled]}>
-      {options.map((opt, i) => {
+    <View style={[styles.track, disabled && styles.trackDisabled, style]}>
+      {options.map((opt) => {
         const selected = opt.value === value;
         return (
           <Pressable
             key={opt.value}
             onPress={() => onChange(opt.value)}
             disabled={disabled}
-            accessibilityRole="radio"
+            accessibilityRole="tab"
             accessibilityState={{ selected, disabled: !!disabled }}
-            android_ripple={ripple('rgba(107,45,107,0.15)')}
-            style={[
-              styles.segment,
-              i === 0 && styles.segmentFirst,
-              i === options.length - 1 && styles.segmentLast,
-              selected && styles.segmentSelected,
-            ]}
+            style={[styles.segment, selected && styles.segmentSelected]}
           >
-            {selected && (
-              <MaterialCommunityIcons name="check" size={15} color={Palette.onPrimaryContainer} />
-            )}
             <Text
               style={[styles.segmentText, selected && styles.segmentTextSelected]}
               numberOfLines={1}
@@ -202,6 +250,47 @@ export function SegmentedButtons<T extends string>({
         );
       })}
     </View>
+  );
+}
+
+/** 목록 상단의 상태 필터. 세그먼트와 같은 모양을 쓰되 가로 스크롤을 허용한다. */
+export function FilterTabs<T extends string>({
+  options,
+  value,
+  onChange,
+}: {
+  options: Segment<T>[];
+  value: T;
+  onChange: (value: T) => void;
+}) {
+  return (
+    <ScrollView
+      horizontal
+      showsHorizontalScrollIndicator={false}
+      contentContainerStyle={styles.filterScroll}
+    >
+      <View style={styles.track}>
+        {options.map((opt) => {
+          const selected = opt.value === value;
+          return (
+            <Pressable
+              key={opt.value}
+              onPress={() => onChange(opt.value)}
+              accessibilityRole="tab"
+              accessibilityState={{ selected }}
+              style={[styles.segment, styles.filterSegment, selected && styles.segmentSelected]}
+            >
+              <Text
+                style={[styles.segmentText, selected && styles.segmentTextSelected]}
+                numberOfLines={1}
+              >
+                {opt.label}
+              </Text>
+            </Pressable>
+          );
+        })}
+      </View>
+    </ScrollView>
   );
 }
 
@@ -222,7 +311,7 @@ export function EmptyState({
   return (
     <View style={styles.empty}>
       <View style={styles.emptyIconWrap}>
-        <MaterialCommunityIcons name={icon} size={38} color={Palette.primary} />
+        <MaterialCommunityIcons name={icon} size={34} color={Palette.primary} />
       </View>
       <Text style={styles.emptyTitle}>{title}</Text>
       {description && <Text style={styles.emptyDesc}>{description}</Text>}
@@ -235,20 +324,20 @@ export function EmptyState({
 
 // ─── 스켈레톤 ────────────────────────────────────────────
 function Pulse({ style }: { style: StyleProp<ViewStyle> }) {
-  const opacity = useRef(new Animated.Value(0.45)).current;
+  const opacity = useRef(new Animated.Value(0.5)).current;
 
   useEffect(() => {
     const loop = Animated.loop(
       Animated.sequence([
-        Animated.timing(opacity, { toValue: 1, duration: 720, useNativeDriver: true }),
-        Animated.timing(opacity, { toValue: 0.45, duration: 720, useNativeDriver: true }),
+        Animated.timing(opacity, { toValue: 1, duration: 700, useNativeDriver: true }),
+        Animated.timing(opacity, { toValue: 0.5, duration: 700, useNativeDriver: true }),
       ])
     );
     loop.start();
     return () => loop.stop();
   }, [opacity]);
 
-  return <Animated.View style={[style, { opacity, backgroundColor: Palette.outlineVariant }]} />;
+  return <Animated.View style={[style, { opacity, backgroundColor: Palette.track }]} />;
 }
 
 export function SkeletonList({ count = 4 }: { count?: number }) {
@@ -269,7 +358,7 @@ export function SkeletonList({ count = 4 }: { count?: number }) {
   );
 }
 
-// ─── 화면 헤더 ───────────────────────────────────────────
+// ─── 헤더 / 아바타 / 아이콘 버튼 ─────────────────────────
 export function ScreenHeader({
   title,
   subtitle,
@@ -292,11 +381,19 @@ export function ScreenHeader({
   );
 }
 
-export function Avatar({ name, onPress }: { name?: string; onPress?: () => void }) {
+export function Avatar({
+  name,
+  size = 40,
+  onPress,
+}: {
+  name?: string;
+  size?: number;
+  onPress?: () => void;
+}) {
   const initial = name?.charAt(0).toUpperCase() ?? '?';
   const content = (
-    <View style={styles.avatar}>
-      <Text style={styles.avatarText}>{initial}</Text>
+    <View style={[styles.avatar, { width: size, height: size }]}>
+      <Text style={[styles.avatarText, { fontSize: size * 0.38 }]}>{initial}</Text>
     </View>
   );
   if (!onPress) return content;
@@ -306,33 +403,62 @@ export function Avatar({ name, onPress }: { name?: string; onPress?: () => void 
       accessibilityRole="button"
       accessibilityLabel="프로필"
       hitSlop={10}
-      style={({ pressed }) => pressed && Platform.OS !== 'android' ? { opacity: 0.7 } : undefined}
+      style={({ pressed }) =>
+        pressed && Platform.OS !== 'android' ? { opacity: 0.7 } : undefined
+      }
     >
       {content}
     </Pressable>
   );
 }
 
-const textStyle = (t: typeof Type[keyof typeof Type]): TextStyle => ({
-  fontSize: t.fontSize,
-  fontWeight: t.fontWeight as TextStyle['fontWeight'],
-  lineHeight: t.lineHeight,
-});
+export function IconButton({
+  icon,
+  label,
+  onPress,
+  disabled,
+  tone = Palette.onSurfaceVariant,
+  size = ICON,
+}: {
+  icon: keyof typeof MaterialCommunityIcons.glyphMap;
+  label: string;
+  onPress: () => void;
+  disabled?: boolean;
+  tone?: string;
+  size?: number;
+}) {
+  return (
+    <Pressable
+      onPress={onPress}
+      disabled={disabled}
+      accessibilityRole="button"
+      accessibilityLabel={label}
+      android_ripple={ripple('rgba(107,45,107,0.15)', true, 24)}
+      style={({ pressed }) => [styles.iconButton, (pressed || disabled) && { opacity: 0.55 }]}
+    >
+      <MaterialCommunityIcons name={icon} size={size} color={tone} />
+    </Pressable>
+  );
+}
+
+/** 구역을 나누는 얇은 선. 테두리가 아니라 경계 암시용이다. */
+export function Divider({ style }: { style?: StyleProp<ViewStyle> }) {
+  return <View style={[styles.divider, style]} />;
+}
+
+export function SectionLabel({ children }: { children: ReactNode }) {
+  return <Text style={styles.sectionLabel}>{children}</Text>;
+}
 
 const styles = StyleSheet.create({
-  // 칩
   chip: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    paddingHorizontal: 10,
-    paddingVertical: 4,
+    paddingHorizontal: 11,
+    paddingVertical: 5,
     borderRadius: Radius.sm,
     alignSelf: 'flex-start',
   },
-  chipText: { ...textStyle(Type.labelSmall) },
+  chipText: { ...t(Type.labelSmall) },
 
-  // 카드
   card: {
     backgroundColor: Palette.surface,
     borderRadius: Radius.lg,
@@ -344,7 +470,6 @@ const styles = StyleSheet.create({
   },
   cardPressed: { backgroundColor: Palette.surfaceContainer },
 
-  // 버튼
   button: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -352,14 +477,41 @@ const styles = StyleSheet.create({
     gap: 6,
     minHeight: MIN_TOUCH,
     paddingHorizontal: Spacing.xl,
-    borderRadius: Radius.full,
+    borderRadius: Radius.md,
   },
   buttonFull: { alignSelf: 'stretch' },
   buttonDisabled: { opacity: 0.45 },
   buttonPressed: { opacity: 0.85 },
-  buttonText: { ...textStyle(Type.titleSmall) },
+  buttonText: { ...t(Type.titleSmall) },
 
-  // FAB
+  bottomBar: {
+    paddingHorizontal: Spacing.xl,
+    paddingTop: Spacing.md,
+    backgroundColor: Palette.surface,
+  },
+  bottomButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: Spacing.sm,
+    height: 56,
+    borderRadius: Radius.lg,
+    backgroundColor: Palette.primary,
+    overflow: 'hidden',
+    ...Elevation.level3,
+  },
+  bottomButtonText: { ...t(Type.titleMedium), color: Palette.onPrimary },
+  bottomCount: {
+    minWidth: 30,
+    height: 28,
+    paddingHorizontal: 9,
+    borderRadius: Radius.full,
+    backgroundColor: 'rgba(255,255,255,0.22)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  bottomCountText: { ...t(Type.label), color: Palette.onPrimary, fontWeight: '700' },
+
   fab: {
     position: 'absolute',
     right: Spacing.xl,
@@ -370,42 +522,36 @@ const styles = StyleSheet.create({
     ...Elevation.level3,
   },
   fabRound: { width: 56, height: 56, borderRadius: Radius.lg },
-  fabExtended: {
-    height: 56,
-    paddingHorizontal: Spacing.xl,
-    borderRadius: Radius.lg,
-    gap: Spacing.sm,
-  },
-  fabPressed: { opacity: 0.9 },
-  fabLabel: { ...textStyle(Type.titleSmall), color: Palette.onPrimary },
+  fabExtended: { height: 56, paddingHorizontal: Spacing.xl, borderRadius: Radius.lg, gap: Spacing.sm },
+  fabLabel: { ...t(Type.titleSmall), color: Palette.onPrimary },
 
-  // 세그먼트
-  segmentRow: {
+  // 세그먼트 — 트랙 위에 캡슐
+  track: {
     flexDirection: 'row',
-    borderWidth: 1,
-    borderColor: Palette.outline,
-    borderRadius: Radius.full,
-    overflow: 'hidden',
+    backgroundColor: Palette.track,
+    borderRadius: Radius.md,
+    padding: 3,
+    gap: 3,
   },
-  segmentDisabled: { opacity: 0.5 },
+  trackDisabled: { opacity: 0.5 },
   segment: {
     flex: 1,
-    flexDirection: 'row',
+    minHeight: 40,
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 4,
-    minHeight: 42,
     paddingHorizontal: Spacing.sm,
-    borderLeftWidth: 1,
-    borderLeftColor: Palette.outline,
+    borderRadius: 9,
   },
-  segmentFirst: { borderLeftWidth: 0 },
-  segmentLast: {},
-  segmentSelected: { backgroundColor: Palette.primaryContainer },
-  segmentText: { ...textStyle(Type.label), color: Palette.onSurfaceVariant },
-  segmentTextSelected: { color: Palette.onPrimaryContainer },
+  segmentSelected: {
+    backgroundColor: Palette.surface,
+    ...Elevation.raised,
+  },
+  segmentText: { ...t(Type.label), color: Palette.onSurfaceVariant },
+  segmentTextSelected: { color: Palette.primary, fontWeight: '700' },
 
-  // 빈 상태
+  filterScroll: { paddingHorizontal: Spacing.xl, paddingBottom: Spacing.md },
+  filterSegment: { flex: 0, minWidth: 64, paddingHorizontal: Spacing.lg },
+
   empty: {
     flex: 1,
     alignItems: 'center',
@@ -414,23 +560,18 @@ const styles = StyleSheet.create({
     gap: Spacing.sm,
   },
   emptyIconWrap: {
-    width: 76,
-    height: 76,
+    width: 72,
+    height: 72,
     borderRadius: Radius.full,
     backgroundColor: Palette.primaryContainer,
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: Spacing.xs,
   },
-  emptyTitle: { ...textStyle(Type.titleMedium), color: Palette.onSurface, textAlign: 'center' },
-  emptyDesc: {
-    ...textStyle(Type.bodyMedium),
-    color: Palette.onSurfaceVariant,
-    textAlign: 'center',
-  },
+  emptyTitle: { ...t(Type.titleMedium), color: Palette.onSurface, textAlign: 'center' },
+  emptyDesc: { ...t(Type.bodyMedium), color: Palette.onSurfaceVariant, textAlign: 'center' },
   emptyAction: { marginTop: Spacing.sm },
 
-  // 스켈레톤
   skeletonWrap: { paddingHorizontal: Spacing.xl, paddingTop: Spacing.sm, gap: Spacing.md },
   skelTitle: { height: 18, width: '62%', borderRadius: Radius.xs },
   skelLine: { height: 13, width: '100%', borderRadius: Radius.xs },
@@ -438,7 +579,6 @@ const styles = StyleSheet.create({
   skelFooter: { flexDirection: 'row', gap: Spacing.sm, marginTop: Spacing.xs },
   skelChip: { height: 22, width: 68, borderRadius: Radius.sm },
 
-  // 헤더
   header: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -448,17 +588,26 @@ const styles = StyleSheet.create({
     gap: Spacing.sm,
   },
   headerText: { flexShrink: 1 },
-  headerTitle: { ...textStyle(Type.headlineSmall), color: Palette.onSurface },
-  headerSubtitle: { ...textStyle(Type.bodySmall), color: Palette.onSurfaceVariant, marginTop: 2 },
+  headerTitle: { ...t(Type.headlineSmall), color: Palette.onSurface },
+  headerSubtitle: { ...t(Type.bodySmall), color: Palette.onSurfaceVariant, marginTop: 2 },
 
   avatar: {
-    width: 40,
-    height: 40,
     borderRadius: Radius.full,
     backgroundColor: Palette.primary,
     alignItems: 'center',
     justifyContent: 'center',
     flexShrink: 0,
   },
-  avatarText: { ...textStyle(Type.titleSmall), color: Palette.onPrimary },
+  avatarText: { color: Palette.onPrimary, fontWeight: '700' },
+
+  iconButton: {
+    width: MIN_TOUCH,
+    height: MIN_TOUCH,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: Radius.full,
+  },
+
+  divider: { height: 1, backgroundColor: Palette.outlineVariant },
+  sectionLabel: { ...t(Type.label), color: Palette.onSurfaceVariant },
 });

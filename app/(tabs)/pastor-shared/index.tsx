@@ -150,7 +150,6 @@ export default function PastorSharedScreen() {
                       fg: Palette.onSecondaryContainer,
                       bg: Palette.secondaryContainer,
                     }}
-                    icon="bullhorn-outline"
                   />
                 )}
               </View>
