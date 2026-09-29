@@ -1,25 +1,25 @@
 // app/(tabs)/board/index.tsx
+
+import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import { useBottomTabBarHeight } from '@react-navigation/bottom-tabs';
 import { useFocusEffect, useRouter } from 'expo-router';
-import { useCallback, useEffect, useState } from 'react';
-import {
-  ActivityIndicator,
-  Alert,
-  FlatList,
-  Platform,
-  StyleSheet,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  useWindowDimensions,
-  View,
-} from 'react-native';
+import { useCallback, useMemo, useState } from 'react';
+import { FlatList, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { errorMessage, useFeedback } from '../../../components/ui/Feedback';
+import {
+  Avatar,
+  EmptyState,
+  FAB,
+  ScreenHeader,
+  SkeletonList,
+  SurfaceCard,
+} from '../../../components/ui/primitives';
+import { Palette, Radius, Spacing, Type } from '../../../constants/design';
 import { useAuth } from '../../../contexts/AuthContext';
 import { api } from '../../../utils/api';
 import { formatDate } from '../../../utils/date';
 
-// ─── 타입 ───────────────────────────────────────────────
 interface BoardItem {
   id: number;
   title: string;
@@ -29,19 +29,20 @@ interface BoardItem {
   createdDate: string;
 }
 
-// ─── 상수 ───────────────────────────────────────────────
-const PAGE_SIZE = 10;
+type Filter = 'ALL' | 'UNREAD' | 'READ';
 
-// ─── 목록 아이템 컴포넌트 ────────────────────────────────
+const FILTERS: { value: Filter; label: string }[] = [
+  { value: 'ALL', label: '전체' },
+  { value: 'UNREAD', label: '안읽음' },
+  { value: 'READ', label: '읽음' },
+];
+
+// ─── 카드 ────────────────────────────────────────────────
 function BoardCard({ item, onPress }: { item: BoardItem; onPress: () => void }) {
   const isUnread = item.status === 'UNREAD';
 
   return (
-    <TouchableOpacity
-      style={[styles.card, isUnread && styles.cardUnread]}
-      onPress={onPress}
-      activeOpacity={0.75}
-    >
+    <SurfaceCard onPress={onPress} style={isUnread ? styles.cardUnread : undefined}>
       <View style={styles.cardTop}>
         <View style={styles.cardTitleRow}>
           {isUnread && (
@@ -49,7 +50,10 @@ function BoardCard({ item, onPress }: { item: BoardItem; onPress: () => void }) 
               <Text style={styles.newBadgeText}>NEW</Text>
             </View>
           )}
-          <Text style={styles.cardTitle} numberOfLines={1}>
+          <Text
+            style={[styles.cardTitle, isUnread && styles.cardTitleUnread]}
+            numberOfLines={1}
+          >
             {item.title}
           </Text>
         </View>
@@ -60,77 +64,59 @@ function BoardCard({ item, onPress }: { item: BoardItem; onPress: () => void }) 
         {item.contents}
       </Text>
 
-      <Text style={styles.cardWriter}>{item.writerName}</Text>
-    </TouchableOpacity>
+      <View style={styles.writerRow}>
+        <MaterialCommunityIcons name="account-outline" size={14} color={Palette.onSurfaceVariant} />
+        <Text style={styles.cardWriter}>{item.writerName}</Text>
+      </View>
+    </SurfaceCard>
   );
 }
 
 // ─── 메인 화면 ───────────────────────────────────────────
 export default function BoardScreen() {
-  const { width } = useWindowDimensions();
   const insets = useSafeAreaInsets();
   const tabBarHeight = useBottomTabBarHeight();
   const router = useRouter();
   const { user } = useAuth();
+  const { toast } = useFeedback();
 
-  const [allBoards, setAllBoards] = useState<BoardItem[]>([]); // 전체 데이터
+  const [allBoards, setAllBoards] = useState<BoardItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
-  const [filterStatus, setFilterStatus] = useState<'ALL' | 'UNREAD' | 'READ'>('ALL');
-
-  // ── 검색 ──────────────────────────────────────────────
-  const [searchType, setSearchType] = useState<'title' | 'writer'>('title');
+  const [filterStatus, setFilterStatus] = useState<Filter>('ALL');
   const [searchKeyword, setSearchKeyword] = useState('');
-  const [isSearching, setIsSearching] = useState(false);
+  const [searchType, setSearchType] = useState<'title' | 'writer'>('title');
 
-  // ── 페이지네이션 ───────────────────────────────────────
-  const [currentPage, setCurrentPage] = useState(1);
+  const canWrite = user?.role === '목사';
+  const unreadCount = allBoards.filter((b) => b.status === 'UNREAD').length;
 
-  // ── 필터 + 검색 적용된 데이터 ─────────────────────────
-  const filteredBoards = (() => {
-    let data = allBoards;
+  const visibleBoards = useMemo(() => {
+    const keyword = searchKeyword.trim().toLowerCase();
+    return allBoards.filter((b) => {
+      if (filterStatus !== 'ALL' && b.status !== filterStatus) return false;
+      if (!keyword) return true;
+      const field = searchType === 'title' ? b.title : b.writerName;
+      return field.toLowerCase().includes(keyword);
+    });
+  }, [allBoards, filterStatus, searchKeyword, searchType]);
 
-    // 상태 필터
-    if (filterStatus !== 'ALL') {
-      data = data.filter((b) => b.status === filterStatus);
-    }
+  const fetchBoards = useCallback(
+    async (refreshing = false) => {
+      if (refreshing) setIsRefreshing(true);
+      else setIsLoading(true);
 
-    // 검색 필터
-    if (searchKeyword.trim()) {
-      const keyword = searchKeyword.trim().toLowerCase();
-      if (searchType === 'title') {
-        data = data.filter((b) => b.title.toLowerCase().includes(keyword));
-      } else {
-        data = data.filter((b) => b.writerName.toLowerCase().includes(keyword));
+      try {
+        const res = await api.get<BoardItem[]>('/board');
+        setAllBoards(res.data);
+      } catch (e: any) {
+        toast(errorMessage(e), 'error');
+      } finally {
+        setIsLoading(false);
+        setIsRefreshing(false);
       }
-    }
-
-    return data;
-  })();
-
-  const totalPages = Math.max(1, Math.ceil(filteredBoards.length / PAGE_SIZE));
-  const pagedBoards = filteredBoards.slice(
-    (currentPage - 1) * PAGE_SIZE,
-    currentPage * PAGE_SIZE
+    },
+    [toast]
   );
-
-  // ── 데이터 불러오기 ────────────────────────────────────
-  const fetchBoards = useCallback(async (refreshing = false) => {
-    if (refreshing) setIsRefreshing(true);
-    else setIsLoading(true);
-
-    try {
-      const res = await api.get<BoardItem[]>('/board/latest');
-      setAllBoards(res.data);
-      setCurrentPage(1);
-    } catch (e: any) {
-      const msg = e?.response?.data?.message ?? e?.message ?? '오류가 발생했습니다.';
-      Platform.OS === 'web' ? window.alert(msg) : Alert.alert('오류', msg);
-    } finally {
-      setIsLoading(false);
-      setIsRefreshing(false);
-    }
-  }, []);
 
   useFocusEffect(
     useCallback(() => {
@@ -138,349 +124,218 @@ export default function BoardScreen() {
     }, [fetchBoards])
   );
 
-  // 필터/검색 바뀌면 페이지 초기화 
-  useEffect(() => {
-    setCurrentPage(1);
-  }, [filterStatus, searchKeyword, searchType]);
+  const isFiltered = filterStatus !== 'ALL' || searchKeyword.trim().length > 0;
 
-  // ── 렌더 ──────────────────────────────────────────────
   return (
-    <View style={[styles.container, { paddingBottom: tabBarHeight }]}>
-      {/* 헤더 */}
-      <View style={[styles.header, { paddingTop: insets.top + 16 }]}>
-        <Text style={styles.title}>게시판</Text>
-        <View style={styles.headerActions}>
-          {user?.role === '목사' && (
-            <TouchableOpacity
-              style={styles.writeButton}
-              onPress={() => router.push('/(tabs)/board/write')}
-              activeOpacity={0.8}
-            >
-              <Text style={styles.writeButtonText}>+ 글쓰기</Text>
-            </TouchableOpacity>
-          )}
-          <TouchableOpacity
-            style={styles.avatar}
-            onPress={() => router.push('/(tabs)/profile')}
-            activeOpacity={0.8}
-          >
-            <Text style={styles.avatarText}>
-              {user?.name?.charAt(0).toUpperCase() ?? '?'}
-            </Text>
-          </TouchableOpacity>
-        </View>
-      </View>
+    <View style={styles.container}>
+      <ScreenHeader
+        title="게시판"
+        subtitle={unreadCount > 0 ? `읽지 않은 공지 ${unreadCount}건` : '교회 소식과 공지'}
+        paddingTop={insets.top + Spacing.lg}
+        right={<Avatar name={user?.name} onPress={() => router.push('/(tabs)/profile')} />}
+      />
 
-      {/* 검색 바 */}
+      {/* 검색 */}
       <View style={styles.searchRow}>
-        {/* 검색 타입 토글 */}
-        <TouchableOpacity
-          style={styles.searchTypeButton}
+        <Pressable
           onPress={() => setSearchType(searchType === 'title' ? 'writer' : 'title')}
-          activeOpacity={0.8}
+          accessibilityRole="button"
+          accessibilityLabel={`검색 기준 ${searchType === 'title' ? '제목' : '작성자'}, 눌러서 변경`}
+          android_ripple={{ color: 'rgba(107,45,107,0.15)' }}
+          style={styles.searchType}
         >
-          <Text style={styles.searchTypeText}>
-            {searchType === 'title' ? '제목' : '작성자'}
-          </Text>
-        </TouchableOpacity>
+          <Text style={styles.searchTypeText}>{searchType === 'title' ? '제목' : '작성자'}</Text>
+          <MaterialCommunityIcons name="swap-horizontal" size={14} color={Palette.primary} />
+        </Pressable>
 
-        {/* 검색 입력 */}
         <TextInput
           style={styles.searchInput}
           value={searchKeyword}
           onChangeText={setSearchKeyword}
           placeholder={searchType === 'title' ? '제목으로 검색' : '작성자로 검색'}
-          placeholderTextColor="#AAAAAA"
+          placeholderTextColor={Palette.disabled}
           returnKeyType="search"
         />
 
-        {/* 검색어 초기화 */}
         {searchKeyword.length > 0 && (
-          <TouchableOpacity
-            onPress={() => setSearchKeyword('')}
-            style={styles.clearButton}
-            activeOpacity={0.7}
-          >
-            <Text style={styles.clearButtonText}>✕</Text>
-          </TouchableOpacity>
+          <Pressable onPress={() => setSearchKeyword('')} hitSlop={10} accessibilityLabel="검색어 지우기">
+            <MaterialCommunityIcons name="close-circle" size={18} color={Palette.disabled} />
+          </Pressable>
         )}
       </View>
 
-      {/* 필터 탭 */}
+      {/* 필터 */}
       <View style={styles.filterRow}>
-        {(['ALL', 'UNREAD', 'READ'] as const).map((tab) => (
-          <TouchableOpacity
-            key={tab}
-            style={[styles.filterTab, filterStatus === tab && styles.filterTabActive]}
-            onPress={() => setFilterStatus(tab)}
-            activeOpacity={0.8}
-          >
-            <Text style={[styles.filterTabText, filterStatus === tab && styles.filterTabTextActive]}>
-              {tab === 'ALL' ? '전체' : tab === 'UNREAD' ? '안읽음' : '읽음'}
-            </Text>
-          </TouchableOpacity>
-        ))}
-
-        {/* 검색 결과 수 */}
-        {(searchKeyword.trim() || filterStatus !== 'ALL') && (
-          <Text style={styles.resultCount}>{filteredBoards.length}개</Text>
-        )}
+        {FILTERS.map((f) => {
+          const selected = filterStatus === f.value;
+          return (
+            <Pressable
+              key={f.value}
+              onPress={() => setFilterStatus(f.value)}
+              accessibilityRole="tab"
+              accessibilityState={{ selected }}
+              android_ripple={{ color: 'rgba(107,45,107,0.15)' }}
+              style={[styles.filterChip, selected && styles.filterChipSelected]}
+            >
+              <Text style={[styles.filterText, selected && styles.filterTextSelected]}>
+                {f.label}
+              </Text>
+            </Pressable>
+          );
+        })}
       </View>
 
       {/* 목록 */}
       {isLoading ? (
-        <View style={styles.centerBox}>
-          <ActivityIndicator size="large" color="#000000" />
-        </View>
-      ) : pagedBoards.length === 0 ? (
-        <View style={styles.centerBox}>
-          <Text style={styles.emptyText}>
-            {searchKeyword.trim() ? '검색 결과가 없습니다.' : '게시글이 없습니다.'}
-          </Text>
-        </View>
+        <SkeletonList />
+      ) : visibleBoards.length === 0 ? (
+        <EmptyState
+          icon={isFiltered ? 'magnify-close' : 'bulletin-board'}
+          title={isFiltered ? '조건에 맞는 글이 없어요' : '아직 올라온 글이 없어요'}
+          description={
+            isFiltered
+              ? '검색어나 필터를 바꿔보세요.'
+              : canWrite
+                ? '성도들에게 전할 소식을 올려보세요.'
+                : '목사님이 공지를 올리면 이곳에 표시됩니다.'
+          }
+          actionLabel={!isFiltered && canWrite ? '공지 작성하기' : undefined}
+          onAction={
+            !isFiltered && canWrite ? () => router.push('/(tabs)/board/write') : undefined
+          }
+        />
       ) : (
         <FlatList
-          data={pagedBoards}
+          data={visibleBoards}
           keyExtractor={(item) => String(item.id)}
           renderItem={({ item }) => (
             <BoardCard
               item={item}
-              onPress={() => router.push(`/(tabs)/board/${item.id}`)}
+              onPress={() =>
+                router.push({ pathname: '/(tabs)/board/[id]', params: { id: item.id } } as any)
+              }
             />
           )}
-          contentContainerStyle={styles.listContent}
+          contentContainerStyle={[
+            styles.listContent,
+            { paddingBottom: tabBarHeight + (canWrite ? 96 : Spacing.xxl) },
+          ]}
           ItemSeparatorComponent={() => <View style={styles.separator} />}
           onRefresh={() => fetchBoards(true)}
           refreshing={isRefreshing}
           showsVerticalScrollIndicator={false}
-          // ── 페이지네이션 ──────────────────────────────
-          ListFooterComponent={() => (
-            <View style={styles.pagination}>
-              {/* 이전 */}
-              <TouchableOpacity
-                style={[styles.pageButton, currentPage === 1 && styles.pageButtonDisabled]}
-                onPress={() => setCurrentPage((p) => Math.max(1, p - 1))}
-                disabled={currentPage === 1}
-                activeOpacity={0.7}
-              >
-                <Text style={[styles.pageButtonText, currentPage === 1 && styles.pageButtonTextDisabled]}>
-                  ‹
-                </Text>
-              </TouchableOpacity>
-
-              {/* 페이지 번호 */}
-              {Array.from({ length: totalPages }, (_, i) => i + 1)
-                .filter((p) => p === 1 || p === totalPages || Math.abs(p - currentPage) <= 1)
-                .reduce<(number | string)[]>((acc, p, idx, arr) => {
-                  if (idx > 0 && p - (arr[idx - 1] as number) > 1) acc.push('...');
-                  acc.push(p);
-                  return acc;
-                }, [])
-                .map((p, idx) =>
-                  p === '...' ? (
-                    <Text key={`ellipsis-${idx}`} style={styles.ellipsis}>…</Text>
-                  ) : (
-                    <TouchableOpacity
-                      key={p}
-                      style={[styles.pageButton, currentPage === p && styles.pageButtonActive]}
-                      onPress={() => setCurrentPage(p as number)}
-                      activeOpacity={0.7}
-                    >
-                      <Text style={[styles.pageButtonText, currentPage === p && styles.pageButtonTextActive]}>
-                        {p}
-                      </Text>
-                    </TouchableOpacity>
-                  )
-                )}
-
-              {/* 다음 */}
-              <TouchableOpacity
-                style={[styles.pageButton, currentPage === totalPages && styles.pageButtonDisabled]}
-                onPress={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
-                disabled={currentPage === totalPages}
-                activeOpacity={0.7}
-              >
-                <Text style={[styles.pageButtonText, currentPage === totalPages && styles.pageButtonTextDisabled]}>
-                  ›
-                </Text>
-              </TouchableOpacity>
-            </View>
-          )}
         />
+      )}
+
+      {canWrite && (
+        <FAB onPress={() => router.push('/(tabs)/board/write')} label="글쓰기" bottom={tabBarHeight} />
       )}
     </View>
   );
 }
 
-// ─── 스타일 ──────────────────────────────────────────────
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#FFFFFF' },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 20,
-    paddingBottom: 12,
-  },
-  title: { fontSize: 32, fontWeight: 'bold', color: '#000000' },
-  headerActions: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-  writeButton: {
-    backgroundColor: '#000000',
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 8,
-  },
-  writeButtonText: { color: '#FFFFFF', fontSize: 14, fontWeight: '600' },
-  avatar: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: '#000000',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  avatarText: { color: '#FFFFFF', fontSize: 15, fontWeight: 'bold' },
+  container: { flex: 1, backgroundColor: Palette.background },
 
   // 검색
   searchRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginHorizontal: 20,
-    marginBottom: 10,
-    backgroundColor: '#F4F4F4',
-    borderRadius: 10,
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    gap: 8,
+    gap: Spacing.sm,
+    marginHorizontal: Spacing.xl,
+    marginBottom: Spacing.md,
+    paddingLeft: 6,
+    paddingRight: Spacing.md,
+    height: 46,
+    borderRadius: Radius.full,
+    backgroundColor: Palette.surfaceVariant,
   },
-  searchTypeButton: {
-    backgroundColor: '#000000',
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 6,
+  searchType: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+    height: 34,
+    paddingHorizontal: 12,
+    borderRadius: Radius.full,
+    backgroundColor: Palette.surface,
+    overflow: 'hidden',
   },
   searchTypeText: {
-    color: '#FFFFFF',
-    fontSize: 12,
-    fontWeight: '600',
+    fontSize: Type.label.fontSize,
+    fontWeight: Type.label.fontWeight,
+    color: Palette.primary,
   },
   searchInput: {
     flex: 1,
-    fontSize: 14,
-    color: '#000000',
-    paddingVertical: 2,
-  },
-  clearButton: {
-    padding: 4,
-  },
-  clearButtonText: {
-    fontSize: 13,
-    color: '#999999',
+    fontSize: Type.bodyMedium.fontSize,
+    color: Palette.onSurface,
+    paddingVertical: 0,
   },
 
   // 필터
   filterRow: {
     flexDirection: 'row',
-    paddingHorizontal: 20,
-    gap: 8,
-    marginBottom: 8,
-    alignItems: 'center',
+    gap: Spacing.sm,
+    paddingHorizontal: Spacing.xl,
+    paddingBottom: Spacing.md,
   },
-  filterTab: {
-    paddingHorizontal: 14,
-    paddingVertical: 6,
-    borderRadius: 20,
-    backgroundColor: '#F0F0F0',
+  filterChip: {
+    paddingHorizontal: Spacing.lg,
+    paddingVertical: 7,
+    borderRadius: Radius.full,
+    borderWidth: 1,
+    borderColor: Palette.outline,
+    overflow: 'hidden',
   },
-  filterTabActive: { backgroundColor: '#000000' },
-  filterTabText: { fontSize: 13, color: '#666666', fontWeight: '500' },
-  filterTabTextActive: { color: '#FFFFFF', fontWeight: '600' },
-  resultCount: {
-    fontSize: 12,
-    color: '#999999',
-    marginLeft: 4,
+  filterChipSelected: {
+    backgroundColor: Palette.primaryContainer,
+    borderColor: Palette.primaryContainer,
   },
+  filterText: {
+    fontSize: Type.label.fontSize,
+    fontWeight: Type.label.fontWeight,
+    color: Palette.onSurfaceVariant,
+  },
+  filterTextSelected: { color: Palette.onPrimaryContainer },
 
   // 목록
-  listContent: { paddingHorizontal: 20, paddingTop: 8, paddingBottom: 8 },
-  separator: { height: 10 },
-  card: {
-    backgroundColor: '#F8F8F8',
-    borderRadius: 12,
-    padding: 16,
-    gap: 6,
-    position: 'relative',
-  },
-  cardUnread: {
-    backgroundColor: '#F0F0F0',
-    borderLeftWidth: 3,
-    borderLeftColor: '#000000',
-  },
+  listContent: { paddingHorizontal: Spacing.xl, paddingTop: Spacing.xs },
+  separator: { height: Spacing.md },
+
+  // 카드
+  cardUnread: { borderColor: Palette.primaryContainer, backgroundColor: '#FDFBFD' },
   cardTop: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    gap: 8,
+    gap: Spacing.sm,
   },
-  cardTitleRow: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-  },
+  cardTitleRow: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 6 },
   newBadge: {
-    backgroundColor: '#FF3B30',
-    borderRadius: 6,
     paddingHorizontal: 6,
     paddingVertical: 2,
-    flexShrink: 0,
+    borderRadius: Radius.xs,
+    backgroundColor: Palette.primary,
   },
-  newBadgeText: { fontSize: 10, fontWeight: '700', color: '#FFFFFF' },
-  cardTitle: { flex: 1, fontSize: 16, fontWeight: '700', color: '#000000' },
-  cardDate: { fontSize: 12, color: '#999999', flexShrink: 0 },
-  cardContents: { fontSize: 14, color: '#444444', lineHeight: 20 },
-  cardWriter: { fontSize: 12, color: '#999999', marginTop: 4 },
-
-  // 페이지네이션
-  pagination: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingVertical: 16,
-    gap: 4,
+  newBadgeText: {
+    fontSize: 9,
+    fontWeight: '700',
+    letterSpacing: 0.4,
+    color: Palette.onPrimary,
   },
-  pageButton: {
-    width: 36,
-    height: 36,
-    borderRadius: 8,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#F0F0F0',
-  },
-  pageButtonActive: {
-    backgroundColor: '#000000',
-  },
-  pageButtonDisabled: {
-    opacity: 0.3,
-  },
-  pageButtonText: {
-    fontSize: 15,
-    color: '#333333',
+  cardTitle: {
+    flex: 1,
+    fontSize: Type.titleMedium.fontSize,
     fontWeight: '600',
+    color: Palette.onSurface,
   },
-  pageButtonTextActive: {
-    color: '#FFFFFF',
+  cardTitleUnread: { fontWeight: '700' },
+  cardDate: { fontSize: Type.labelSmall.fontSize, color: Palette.onSurfaceVariant, flexShrink: 0 },
+  cardContents: {
+    fontSize: Type.bodyMedium.fontSize,
+    lineHeight: Type.bodyMedium.lineHeight,
+    color: Palette.onSurfaceVariant,
   },
-  pageButtonTextDisabled: {
-    color: '#999999',
-  },
-  ellipsis: {
-    fontSize: 15,
-    color: '#999999',
-    paddingHorizontal: 4,
-  },
-
-  // 공통
-  centerBox: { flex: 1, alignItems: 'center', justifyContent: 'center' },
-  emptyText: { fontSize: 16, color: '#999999' },
+  writerRow: { flexDirection: 'row', alignItems: 'center', gap: 3, marginTop: 2 },
+  cardWriter: { fontSize: Type.labelSmall.fontSize, color: Palette.onSurfaceVariant },
 });

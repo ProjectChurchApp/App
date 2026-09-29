@@ -4,6 +4,7 @@ import { IconSymbol } from '@/components/ui/icon-symbol';
 import FontAwesome5 from '@expo/vector-icons/FontAwesome5';
 import { Tabs } from 'expo-router';
 import { Platform } from 'react-native';
+import { Palette } from '../../constants/design';
 import { useAuth } from '../../contexts/AuthContext';
 
 export default function TabLayout() {
@@ -15,11 +16,13 @@ export default function TabLayout() {
   return (
     <Tabs
       screenOptions={{
-        tabBarActiveTintColor: '#000000',
+        tabBarActiveTintColor: Palette.primary,
+        tabBarInactiveTintColor: Palette.onSurfaceVariant,
         headerShown: false,
+        tabBarLabelStyle: { fontSize: 11, fontWeight: '600' },
         tabBarStyle: Platform.select({
-          ios: { position: 'absolute' },
-          default: {},
+          ios: { position: 'absolute', borderTopColor: Palette.outlineVariant },
+          default: { borderTopColor: Palette.outlineVariant, height: 62, paddingTop: 6, paddingBottom: 8 },
         }),
       }}
     >

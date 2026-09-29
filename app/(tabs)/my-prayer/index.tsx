@@ -1,84 +1,96 @@
 // app/(tabs)/my-prayer/index.tsx
 
+import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import { useBottomTabBarHeight } from '@react-navigation/bottom-tabs';
 import { useFocusEffect, useRouter } from 'expo-router';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import {
-    ActivityIndicator,
-    Alert,
-    FlatList,
-    Platform,
-    StyleSheet,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    View,
+  FlatList,
+  Pressable,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { Palette, Radius, Spacing, Type } from '../../../constants/design';
+import { STATUS_META, visibilityMeta } from '../../../constants/prayerMeta';
 import { useAuth } from '../../../contexts/AuthContext';
 import { PrayerItem, PrayerStatus } from '../../../types/prayer';
 import { api } from '../../../utils/api';
-import { formatDate } from '../../../utils/date';
+import { formatDate, formatDateOnly } from '../../../utils/date';
+import { errorMessage, useFeedback } from '../../../components/ui/Feedback';
+import {
+  Avatar,
+  Chip,
+  EmptyState,
+  FAB,
+  ScreenHeader,
+  SkeletonList,
+  SurfaceCard,
+} from '../../../components/ui/primitives';
 
-// ─── 상수 ───────────────────────────────────────────────
-const PAGE_SIZE = 10;
+type StatusFilter = 'ALL' | PrayerStatus;
 
-const STATUS_LABELS: Record<PrayerStatus, string> = {
-  PRAYING: '🙏 기도중',
-  ANSWERED: '✅ 응답',
-  CLOSED: '🔚 종료',
-};
+const FILTERS: { value: StatusFilter; label: string }[] = [
+  { value: 'ALL', label: '전체' },
+  { value: 'PRAYING', label: '기도중' },
+  { value: 'ANSWERED', label: '응답' },
+  { value: 'CLOSED', label: '종료' },
+];
 
-// ─── 카드 컴포넌트 ───────────────────────────────────────
-function PrayerCard({ item, onPress, onTogglePray }: {
+// ─── 카드 ────────────────────────────────────────────────
+function PrayerCard({
+  item,
+  onPress,
+  onPray,
+}: {
   item: PrayerItem;
   onPress: () => void;
-  onTogglePray: () => void;
+  onPray: () => void;
 }) {
+  const status = STATUS_META[item.status];
+  const visibility = visibilityMeta(item);
+
   return (
-    <TouchableOpacity style={styles.card} onPress={onPress} activeOpacity={0.75}>
+    <SurfaceCard onPress={onPress}>
       <View style={styles.cardTop}>
-        <Text style={styles.cardTitle} numberOfLines={1}>{item.title}</Text>
+        <Text style={styles.cardTitle} numberOfLines={1}>
+          {item.title}
+        </Text>
         <Text style={styles.cardDate}>{formatDate(item.createdDate)}</Text>
       </View>
-      <Text style={styles.cardContents} numberOfLines={2}>{item.contents}</Text>
-      <View style={styles.cardBottom}>
-        <Text style={styles.cardWriter}>{item.writerName}</Text>
-        <View style={styles.cardBadges}>
-          <View style={styles.statusBadge}>
-            <Text style={styles.statusText}>{STATUS_LABELS[item.status]}</Text>
-          </View>
-          <View style={[
-            styles.visibilityBadge,
-            item.boardStage === 'INTERCESSORY'
-              ? styles.badgeIntercessory
-              : item.visibility === 'PRIVATE'
-                ? styles.badgePrivate
-                : styles.badgePastor
-          ]}>
-            <Text style={styles.visibilityText}>
-              {item.boardStage === 'INTERCESSORY'
-                ? '📢 중보기도'
-                : item.visibility === 'PRIVATE'
-                  ? '🔒 나만보기'
-                  : item.intercessoryRequested
-                    ? '📢 중보기도 요청'
-                    : '🙏 목사님만 기도'}
-            </Text>
-          </View>
-        </View>
+
+      <Text style={styles.cardContents} numberOfLines={2}>
+        {item.contents}
+      </Text>
+
+      <View style={styles.chipRow}>
+        <Chip tone={status} />
+        <Chip tone={visibility} />
+        {item.statusChangedAt && item.status !== 'PRAYING' && (
+          <Text style={styles.statusDate}>{formatDateOnly(item.statusChangedAt)}</Text>
+        )}
       </View>
 
-      <TouchableOpacity
-        style={[styles.prayButton, item.hasPrayed && styles.prayButtonActive]}
-        onPress={onTogglePray}
-        activeOpacity={0.8}
+      <Pressable
+        onPress={onPray}
+        accessibilityRole="button"
+        accessibilityLabel={`기도했어요, 현재 ${item.prayerCount}회`}
+        android_ripple={{ color: 'rgba(107,45,107,0.15)' }}
+        style={({ pressed }) => [styles.prayButton, pressed && styles.prayButtonPressed]}
       >
-        <Text style={[styles.prayButtonText, item.hasPrayed && styles.prayButtonTextActive]}>
-          🙏 기도했어요 {item.prayerCount}
-        </Text>
-      </TouchableOpacity>
-    </TouchableOpacity>
+        <MaterialCommunityIcons
+          name={item.hasPrayed ? 'hand-heart' : 'hand-heart-outline'}
+          size={17}
+          color={Palette.primary}
+        />
+        <Text style={styles.prayLabel}>기도했어요</Text>
+        <View style={styles.prayCountWrap}>
+          <Text style={styles.prayCount}>{item.prayerCount}</Text>
+        </View>
+      </Pressable>
+    </SurfaceCard>
   );
 }
 
@@ -88,44 +100,40 @@ export default function MyPrayerScreen() {
   const tabBarHeight = useBottomTabBarHeight();
   const router = useRouter();
   const { user } = useAuth();
+  const { toast } = useFeedback();
 
   const [allPrayers, setAllPrayers] = useState<PrayerItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
-
-  // ── 검색 ──────────────────────────────────────────────
   const [searchKeyword, setSearchKeyword] = useState('');
+  const [filter, setFilter] = useState<StatusFilter>('ALL');
 
-  // ── 페이지네이션 ───────────────────────────────────────
-  const [currentPage, setCurrentPage] = useState(1);
+  const visiblePrayers = useMemo(() => {
+    const keyword = searchKeyword.trim().toLowerCase();
+    return allPrayers.filter((p) => {
+      if (filter !== 'ALL' && p.status !== filter) return false;
+      if (keyword && !p.title.toLowerCase().includes(keyword)) return false;
+      return true;
+    });
+  }, [allPrayers, searchKeyword, filter]);
 
-  const filteredPrayers = searchKeyword.trim()
-    ? allPrayers.filter((p) => p.title.toLowerCase().includes(searchKeyword.trim().toLowerCase()))
-    : allPrayers;
+  const fetchPrayers = useCallback(
+    async (refreshing = false) => {
+      if (refreshing) setIsRefreshing(true);
+      else setIsLoading(true);
 
-  const totalPages = Math.max(1, Math.ceil(filteredPrayers.length / PAGE_SIZE));
-  const pagedPrayers = filteredPrayers.slice(
-    (currentPage - 1) * PAGE_SIZE,
-    currentPage * PAGE_SIZE
+      try {
+        const res = await api.get<PrayerItem[]>('/prayer');
+        setAllPrayers(res.data);
+      } catch (e: any) {
+        toast(errorMessage(e), 'error');
+      } finally {
+        setIsLoading(false);
+        setIsRefreshing(false);
+      }
+    },
+    [toast]
   );
-
-  // ── 데이터 불러오기 ────────────────────────────────────
-  const fetchPrayers = useCallback(async (refreshing = false) => {
-    if (refreshing) setIsRefreshing(true);
-    else setIsLoading(true);
-
-    try {
-      const res = await api.get<PrayerItem[]>('/prayer');
-      setAllPrayers(res.data);
-      setCurrentPage(1);
-    } catch (e: any) {
-      const msg = e?.response?.data?.message ?? e?.message ?? '오류가 발생했습니다.';
-      Platform.OS === 'web' ? window.alert(msg) : Alert.alert('오류', msg);
-    } finally {
-      setIsLoading(false);
-      setIsRefreshing(false);
-    }
-  }, []);
 
   useFocusEffect(
     useCallback(() => {
@@ -133,282 +141,243 @@ export default function MyPrayerScreen() {
     }, [fetchPrayers])
   );
 
-  useEffect(() => {
-    setCurrentPage(1);
-  }, [searchKeyword]);
-
-  const handleTogglePray = async (prayerId: number) => {
+  const handlePray = async (prayerId: number) => {
     try {
-      const res = await api.post<{ prayerCount: number; hasPrayed: boolean }>(`/prayer/${prayerId}/pray`);
+      const res = await api.post<{ prayerCount: number; hasPrayed: boolean }>(
+        `/prayer/${prayerId}/pray`
+      );
       setAllPrayers((prev) =>
         prev.map((p) =>
-          p.id === prayerId ? { ...p, prayerCount: res.data.prayerCount, hasPrayed: res.data.hasPrayed } : p
+          p.id === prayerId
+            ? { ...p, prayerCount: res.data.prayerCount, hasPrayed: res.data.hasPrayed }
+            : p
         )
       );
     } catch (e: any) {
-      const msg = e?.response?.data?.message ?? e?.message ?? '오류가 발생했습니다.';
-      Platform.OS === 'web' ? window.alert(msg) : Alert.alert('오류', msg);
+      toast(errorMessage(e), 'error');
     }
   };
 
-  return (
-    <View style={[styles.container, { paddingBottom: tabBarHeight }]}>
-      {/* 헤더 */}
-      <View style={[styles.header, { paddingTop: insets.top + 16 }]}>
-        <View style={styles.headerTitleGroup}>
-          <Text style={styles.title}>나의기도</Text>
-          <Text style={styles.subtitle}>간절한 마음을 전해보세요</Text>
-        </View>
-        <View style={styles.headerActions}>
-          <TouchableOpacity
-            style={styles.writeButton}
-            onPress={() => router.push('/(tabs)/my-prayer/write' as any)}
-            activeOpacity={0.8}
-          >
-            <Text style={styles.writeButtonText}>+ 작성</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={styles.avatar}
-            onPress={() => router.push('/(tabs)/profile')}
-            activeOpacity={0.8}
-          >
-            <Text style={styles.avatarText}>
-              {user?.name?.charAt(0).toUpperCase() ?? '?'}
-            </Text>
-          </TouchableOpacity>
-        </View>
-      </View>
+  const hasAny = allPrayers.length > 0;
+  const isFiltered = filter !== 'ALL' || searchKeyword.trim().length > 0;
 
-      {/* 검색 바 */}
+  return (
+    <View style={styles.container}>
+      <ScreenHeader
+        title="나의기도"
+        subtitle="간절한 마음을 전해보세요"
+        paddingTop={insets.top + Spacing.lg}
+        right={<Avatar name={user?.name} onPress={() => router.push('/(tabs)/profile')} />}
+      />
+
+      {/* 검색 */}
       <View style={styles.searchRow}>
+        <MaterialCommunityIcons name="magnify" size={20} color={Palette.onSurfaceVariant} />
         <TextInput
           style={styles.searchInput}
           value={searchKeyword}
           onChangeText={setSearchKeyword}
           placeholder="제목으로 검색"
-          placeholderTextColor="#AAAAAA"
+          placeholderTextColor={Palette.disabled}
           returnKeyType="search"
         />
         {searchKeyword.length > 0 && (
-          <TouchableOpacity onPress={() => setSearchKeyword('')} style={styles.clearButton} activeOpacity={0.7}>
-            <Text style={styles.clearButtonText}>✕</Text>
-          </TouchableOpacity>
+          <Pressable onPress={() => setSearchKeyword('')} hitSlop={10} accessibilityLabel="검색어 지우기">
+            <MaterialCommunityIcons name="close-circle" size={18} color={Palette.disabled} />
+          </Pressable>
         )}
+      </View>
+
+      {/* 상태 필터 */}
+      <View style={styles.filterRow}>
+        {FILTERS.map((f) => {
+          const selected = filter === f.value;
+          return (
+            <Pressable
+              key={f.value}
+              onPress={() => setFilter(f.value)}
+              accessibilityRole="tab"
+              accessibilityState={{ selected }}
+              android_ripple={{ color: 'rgba(107,45,107,0.15)' }}
+              style={[styles.filterChip, selected && styles.filterChipSelected]}
+            >
+              <Text style={[styles.filterText, selected && styles.filterTextSelected]}>
+                {f.label}
+              </Text>
+            </Pressable>
+          );
+        })}
       </View>
 
       {/* 목록 */}
       {isLoading ? (
-        <View style={styles.centerBox}>
-          <ActivityIndicator size="large" color="#000000" />
-        </View>
-      ) : pagedPrayers.length === 0 ? (
-        <View style={styles.centerBox}>
-          <Text style={styles.emptyText}>
-            {searchKeyword.trim() ? '검색 결과가 없습니다.' : '기도 요청이 없습니다.'}
-          </Text>
-          {!searchKeyword.trim() && (
-            <Text style={styles.emptySubText}>첫 번째 기도 요청을 작성해보세요 🙏</Text>
-          )}
-        </View>
+        <SkeletonList />
+      ) : visiblePrayers.length === 0 ? (
+        <EmptyState
+          icon={hasAny ? 'magnify-close' : 'hands-pray'}
+          title={isFiltered ? '조건에 맞는 기도가 없어요' : '아직 작성한 기도가 없어요'}
+          description={
+            isFiltered
+              ? '검색어나 상태 필터를 바꿔보세요.'
+              : '마음에 있는 기도제목을 적어보세요. 필요하면 목사님께 요청할 수 있어요.'
+          }
+          actionLabel={isFiltered ? undefined : '첫 기도 작성하기'}
+          onAction={isFiltered ? undefined : () => router.push('/(tabs)/my-prayer/write' as any)}
+        />
       ) : (
         <FlatList
-          data={pagedPrayers}
+          data={visiblePrayers}
           keyExtractor={(item) => String(item.id)}
           renderItem={({ item }) => (
             <PrayerCard
               item={item}
-              onPress={() => router.push({
-                pathname: '/(tabs)/my-prayer/[id]',
-                params: { id: item.id }
-              } as any)}
-              onTogglePray={() => handleTogglePray(item.id)}
+              onPress={() =>
+                router.push({ pathname: '/(tabs)/my-prayer/[id]', params: { id: item.id } } as any)
+              }
+              onPray={() => handlePray(item.id)}
             />
           )}
-          contentContainerStyle={styles.listContent}
+          contentContainerStyle={[
+            styles.listContent,
+            { paddingBottom: tabBarHeight + 96 },
+          ]}
           ItemSeparatorComponent={() => <View style={styles.separator} />}
           onRefresh={() => fetchPrayers(true)}
           refreshing={isRefreshing}
           showsVerticalScrollIndicator={false}
-          ListFooterComponent={() => (
-            <View style={styles.pagination}>
-              <TouchableOpacity
-                style={[styles.pageButton, currentPage === 1 && styles.pageButtonDisabled]}
-                onPress={() => setCurrentPage((p) => Math.max(1, p - 1))}
-                disabled={currentPage === 1}
-                activeOpacity={0.7}
-              >
-                <Text style={[styles.pageButtonText, currentPage === 1 && styles.pageButtonTextDisabled]}>‹</Text>
-              </TouchableOpacity>
-
-              {Array.from({ length: totalPages }, (_, i) => i + 1)
-                .filter((p) => p === 1 || p === totalPages || Math.abs(p - currentPage) <= 1)
-                .reduce<(number | string)[]>((acc, p, idx, arr) => {
-                  if (idx > 0 && p - (arr[idx - 1] as number) > 1) acc.push('...');
-                  acc.push(p);
-                  return acc;
-                }, [])
-                .map((p, idx) =>
-                  p === '...' ? (
-                    <Text key={`ellipsis-${idx}`} style={styles.ellipsis}>…</Text>
-                  ) : (
-                    <TouchableOpacity
-                      key={p}
-                      style={[styles.pageButton, currentPage === p && styles.pageButtonActive]}
-                      onPress={() => setCurrentPage(p as number)}
-                      activeOpacity={0.7}
-                    >
-                      <Text style={[styles.pageButtonText, currentPage === p && styles.pageButtonTextActive]}>{p}</Text>
-                    </TouchableOpacity>
-                  )
-                )}
-
-              <TouchableOpacity
-                style={[styles.pageButton, currentPage === totalPages && styles.pageButtonDisabled]}
-                onPress={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
-                disabled={currentPage === totalPages}
-                activeOpacity={0.7}
-              >
-                <Text style={[styles.pageButtonText, currentPage === totalPages && styles.pageButtonTextDisabled]}>›</Text>
-              </TouchableOpacity>
-            </View>
-          )}
         />
       )}
+
+      <FAB
+        onPress={() => router.push('/(tabs)/my-prayer/write' as any)}
+        label="작성"
+        bottom={tabBarHeight}
+      />
     </View>
   );
 }
 
-// ─── 스타일 ──────────────────────────────────────────────
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#FFFFFF' },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 20,
-    paddingBottom: 16,
-    gap: 8,
-  },
-  headerTitleGroup: { flexShrink: 1 },
-  title: { fontSize: 28, fontWeight: 'bold', color: '#000000' },
-  subtitle: { fontSize: 13, color: '#999999', marginTop: 2 },
-  headerActions: { flexDirection: 'row', alignItems: 'center', gap: 10, flexShrink: 0 },
-  writeButton: {
-    backgroundColor: '#000000',
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 8,
-  },
-  writeButtonText: { color: '#FFFFFF', fontSize: 14, fontWeight: '600' },
-  avatar: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: '#000000',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  avatarText: { color: '#FFFFFF', fontSize: 15, fontWeight: 'bold' },
+  container: { flex: 1, backgroundColor: Palette.background },
 
   // 검색
   searchRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginHorizontal: 20,
-    marginBottom: 8,
-    backgroundColor: '#F4F4F4',
-    borderRadius: 10,
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    gap: 8,
+    gap: Spacing.sm,
+    marginHorizontal: Spacing.xl,
+    marginBottom: Spacing.md,
+    paddingHorizontal: Spacing.md,
+    height: 46,
+    borderRadius: Radius.full,
+    backgroundColor: Palette.surfaceVariant,
   },
-  searchInput: { flex: 1, fontSize: 14, color: '#000000', paddingVertical: 2 },
-  clearButton: { padding: 4 },
-  clearButtonText: { fontSize: 13, color: '#999999' },
+  searchInput: {
+    flex: 1,
+    fontSize: Type.bodyMedium.fontSize,
+    color: Palette.onSurface,
+    paddingVertical: 0,
+  },
+
+  // 필터
+  filterRow: {
+    flexDirection: 'row',
+    gap: Spacing.sm,
+    paddingHorizontal: Spacing.xl,
+    paddingBottom: Spacing.md,
+  },
+  filterChip: {
+    paddingHorizontal: Spacing.lg,
+    paddingVertical: 7,
+    borderRadius: Radius.full,
+    borderWidth: 1,
+    borderColor: Palette.outline,
+    overflow: 'hidden',
+  },
+  filterChipSelected: {
+    backgroundColor: Palette.primaryContainer,
+    borderColor: Palette.primaryContainer,
+  },
+  filterText: {
+    fontSize: Type.label.fontSize,
+    fontWeight: Type.label.fontWeight,
+    color: Palette.onSurfaceVariant,
+  },
+  filterTextSelected: { color: Palette.onPrimaryContainer },
 
   // 목록
-  listContent: { paddingHorizontal: 20, paddingTop: 8, paddingBottom: 8 },
-  separator: { height: 10 },
-  card: {
-    backgroundColor: '#F8F8F8',
-    borderRadius: 12,
-    padding: 16,
-    gap: 8,
-  },
+  listContent: { paddingHorizontal: Spacing.xl, paddingTop: Spacing.xs },
+  separator: { height: Spacing.md },
+
+  // 카드
   cardTop: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    gap: 8,
+    gap: Spacing.sm,
   },
-  cardTitle: { flex: 1, fontSize: 16, fontWeight: '700', color: '#000000' },
-  cardDate: { fontSize: 12, color: '#999999', flexShrink: 0 },
-  cardContents: { fontSize: 14, color: '#444444', lineHeight: 20 },
-  cardBottom: {
+  cardTitle: {
+    flex: 1,
+    fontSize: Type.titleMedium.fontSize,
+    fontWeight: Type.titleMedium.fontWeight,
+    color: Palette.onSurface,
+  },
+  cardDate: {
+    fontSize: Type.labelSmall.fontSize,
+    color: Palette.onSurfaceVariant,
+    flexShrink: 0,
+  },
+  cardContents: {
+    fontSize: Type.bodyMedium.fontSize,
+    lineHeight: Type.bodyMedium.lineHeight,
+    color: Palette.onSurfaceVariant,
+  },
+  chipRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    marginTop: 4,
     flexWrap: 'wrap',
-    gap: 6,
+    gap: Spacing.xs,
+    marginTop: 2,
   },
-  cardWriter: { fontSize: 12, color: '#999999' },
-  cardBadges: { flexDirection: 'row', gap: 6, flexWrap: 'wrap' },
-  statusBadge: {
-    paddingHorizontal: 10,
-    paddingVertical: 3,
-    borderRadius: 12,
-    backgroundColor: '#EAF4EA',
+  statusDate: {
+    fontSize: Type.labelSmall.fontSize,
+    color: Palette.onSurfaceVariant,
+    marginLeft: 2,
   },
-  statusText: { fontSize: 11, fontWeight: '600', color: '#4A7A4A' },
-  visibilityBadge: {
-    paddingHorizontal: 10,
-    paddingVertical: 3,
-    borderRadius: 12,
-  },
-  badgePrivate: { backgroundColor: '#F0F0F0' },
-  badgePastor: { backgroundColor: '#FFF3E0' },
-  badgeIntercessory: { backgroundColor: '#E8F0FE' },
-  visibilityText: { fontSize: 11, fontWeight: '600', color: '#666666' },
 
-  // 기도해요 버튼
+  // 기도했어요
   prayButton: {
-    marginTop: 4,
-    alignSelf: 'flex-start',
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    borderRadius: 20,
-    backgroundColor: '#F0F0F0',
-  },
-  prayButtonActive: { backgroundColor: '#000000' },
-  prayButtonText: { fontSize: 13, fontWeight: '600', color: '#666666' },
-  prayButtonTextActive: { color: '#FFFFFF' },
-
-  // 페이지네이션
-  pagination: {
     flexDirection: 'row',
-    justifyContent: 'center',
     alignItems: 'center',
-    paddingVertical: 16,
-    gap: 4,
+    gap: 6,
+    alignSelf: 'flex-start',
+    marginTop: Spacing.xs,
+    paddingLeft: Spacing.md,
+    paddingRight: 6,
+    height: 38,
+    borderRadius: Radius.full,
+    borderWidth: 1,
+    borderColor: Palette.outline,
+    overflow: 'hidden',
   },
-  pageButton: {
-    width: 36,
-    height: 36,
-    borderRadius: 8,
+  prayButtonPressed: { backgroundColor: Palette.primaryContainer },
+  prayLabel: {
+    fontSize: Type.label.fontSize,
+    fontWeight: Type.label.fontWeight,
+    color: Palette.primary,
+  },
+  prayCountWrap: {
+    minWidth: 26,
+    height: 26,
+    paddingHorizontal: 7,
+    borderRadius: Radius.full,
+    backgroundColor: Palette.primaryContainer,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#F0F0F0',
   },
-  pageButtonActive: { backgroundColor: '#000000' },
-  pageButtonDisabled: { opacity: 0.3 },
-  pageButtonText: { fontSize: 15, color: '#333333', fontWeight: '600' },
-  pageButtonTextActive: { color: '#FFFFFF' },
-  pageButtonTextDisabled: { color: '#999999' },
-  ellipsis: { fontSize: 15, color: '#999999', paddingHorizontal: 4 },
-
-  // 공통
-  centerBox: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 8 },
-  emptyText: { fontSize: 16, color: '#999999' },
-  emptySubText: { fontSize: 13, color: '#BBBBBB' },
+  prayCount: {
+    fontSize: Type.labelSmall.fontSize,
+    fontWeight: '700',
+    color: Palette.onPrimaryContainer,
+  },
 });
