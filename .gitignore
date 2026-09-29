@@ -44,3 +44,6 @@ app-example
 
 .env
 .env*.local
+# 요구사항 문서 (로컬 보관)
+*.pdf
+*.hwpx
