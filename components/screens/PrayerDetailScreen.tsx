@@ -25,8 +25,7 @@ import {
   Chip,
   Divider,
   IconButton,
-  SectionLabel,
-  SegmentedButtons,
+  SelectMenu,
 } from '../ui/primitives';
 
 type PrayerDetail = PrayerItem;
@@ -218,6 +217,19 @@ export function PrayerDetailScreen() {
         )}
       </View>
 
+      {canManage && (
+        <View style={styles.statusRow}>
+          <SelectMenu
+            label="기도 상태"
+            options={STATUS_ORDER.map((s) => ({ value: s, label: STATUS_META[s].label }))}
+            value={prayer.status}
+            onChange={handleChangeStatus}
+            tone={{ fg: statusMeta.fg, bg: statusMeta.bg }}
+            disabled={isUpdatingStatus}
+          />
+        </View>
+      )}
+
       <ScrollView
         style={styles.scrollView}
         contentContainerStyle={styles.scrollContent}
@@ -227,7 +239,7 @@ export function PrayerDetailScreen() {
         {/* 기도문 */}
         <View style={styles.pad}>
           <View style={styles.chipRow}>
-            <Chip tone={statusMeta} />
+            {!canManage && <Chip tone={statusMeta} />}
             <Chip tone={visibilityMeta(prayer)} />
             {prayer.statusChangedAt && prayer.status !== 'PRAYING' && (
               <Text style={styles.statusDate}>{formatDateOnly(prayer.statusChangedAt)}</Text>
@@ -247,25 +259,6 @@ export function PrayerDetailScreen() {
           </View>
 
           <Text style={styles.body}>{prayer.contents}</Text>
-        </View>
-
-        <Divider style={styles.hr} />
-
-        {/* 기도 상태 */}
-        <View style={styles.pad}>
-          <SectionLabel>기도 상태</SectionLabel>
-          <View style={styles.segWrap}>
-            {canManage ? (
-              <SegmentedButtons
-                options={STATUS_ORDER.map((s) => ({ value: s, label: STATUS_META[s].label }))}
-                value={prayer.status}
-                onChange={handleChangeStatus}
-                disabled={isUpdatingStatus}
-              />
-            ) : (
-              <Chip tone={statusMeta} />
-            )}
-          </View>
         </View>
 
         {canPromote && (
@@ -371,5 +364,10 @@ const styles = StyleSheet.create({
     marginTop: Spacing.xl,
   },
 
-  segWrap: { marginTop: Spacing.md },
+  statusRow: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    paddingHorizontal: Spacing.xl,
+    paddingBottom: Spacing.sm,
+  },
 });

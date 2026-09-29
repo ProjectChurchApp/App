@@ -130,6 +130,7 @@ export default function BoardScreen() {
   return (
     <View style={styles.container}>
       <ScreenHeader
+        greeting={user?.name ? `안녕하세요, ${user.name}님` : undefined}
         title="게시판"
         subtitle={unreadCount > 0 ? `읽지 않은 공지 ${unreadCount}건` : '교회 소식과 공지'}
         paddingTop={insets.top + Spacing.lg}

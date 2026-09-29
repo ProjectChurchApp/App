@@ -4,19 +4,27 @@
 import { useBottomTabBarHeight } from '@react-navigation/bottom-tabs';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { useCallback, useState } from 'react';
-import { ActivityIndicator, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { errorMessage, useFeedback } from '../../../components/ui/Feedback';
+import {
+  AppButton,
+  Avatar,
+  ScreenHeader,
+  SkeletonList,
+  SurfaceCard,
+} from '../../../components/ui/primitives';
+import { Palette, Radius, Spacing, Type } from '../../../constants/design';
 import { useAuth } from '../../../contexts/AuthContext';
 import { Connection, MemberSummary } from '../../../types/connection';
 import { api } from '../../../utils/api';
-import { useFeedback } from '../../../components/ui/Feedback';
 
 export default function PastorManageScreen() {
   const insets = useSafeAreaInsets();
-  const { toast } = useFeedback();
   const tabBarHeight = useBottomTabBarHeight();
   const router = useRouter();
   const { user } = useAuth();
+  const { toast, confirm } = useFeedback();
 
   const [requests, setRequests] = useState<Connection[]>([]);
   const [members, setMembers] = useState<MemberSummary[]>([]);
@@ -33,12 +41,11 @@ export default function PastorManageScreen() {
       setRequests(requestsRes.data);
       setMembers(membersRes.data);
     } catch (e: any) {
-      const msg = e?.response?.data?.message ?? e?.message ?? '오류가 발생했습니다.';
-      toast(msg, 'error');
+      toast(errorMessage(e), 'error');
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [toast]);
 
   useFocusEffect(
     useCallback(() => {
@@ -46,90 +53,120 @@ export default function PastorManageScreen() {
     }, [fetchData])
   );
 
-  const handleRespond = async (id: number, action: 'approve' | 'reject') => {
-    setProcessingID(id);
+  const handleRespond = async (item: Connection, action: 'approve' | 'reject') => {
+    if (action === 'reject') {
+      const ok = await confirm({
+        title: `${item.memberName}님의 요청을 거절할까요?`,
+        message: '거절해도 성도가 다시 요청할 수 있어요.',
+        confirmLabel: '거절',
+        destructive: true,
+      });
+      if (!ok) return;
+    }
+
+    setProcessingID(item.id);
     try {
-      await api.patch(`/connections/${id}/${action}`);
+      await api.patch(`/connections/${item.id}/${action}`);
       await fetchData();
+      toast(
+        action === 'approve' ? `${item.memberName}님과 연결됐어요.` : '요청을 거절했어요.',
+        action === 'approve' ? 'success' : 'info'
+      );
     } catch (e: any) {
-      const msg = e?.response?.data?.message ?? e?.message ?? '오류가 발생했습니다.';
-      toast(msg, 'error');
+      toast(errorMessage(e), 'error');
     } finally {
       setProcessingID(null);
     }
   };
 
   return (
-    <View style={[styles.container, { paddingBottom: tabBarHeight }]}>
-      {/* 헤더 */}
-      <View style={[styles.header, { paddingTop: insets.top + 16 }]}>
-        <View style={styles.headerTitleGroup}>
-          <Text style={styles.title}>성도관리</Text>
-          <Text style={styles.subtitle}>연결 요청 및 성도 목록</Text>
-        </View>
-        <TouchableOpacity
-          style={styles.avatar}
-          onPress={() => router.push('/(tabs)/profile')}
-          activeOpacity={0.8}
-        >
-          <Text style={styles.avatarText}>
-            {user?.name?.charAt(0).toUpperCase() ?? '?'}
-          </Text>
-        </TouchableOpacity>
-      </View>
+    <View style={styles.container}>
+      <ScreenHeader
+        title="성도관리"
+        subtitle={
+          requests.length > 0
+            ? `승인을 기다리는 요청 ${requests.length}건`
+            : `연결된 성도 ${members.length}명`
+        }
+        paddingTop={insets.top + Spacing.lg}
+        right={<Avatar name={user?.name} onPress={() => router.push('/(tabs)/profile')} />}
+      />
 
       {isLoading ? (
-        <View style={styles.centerBox}>
-          <ActivityIndicator size="large" color="#000000" />
-        </View>
+        <SkeletonList count={3} />
       ) : (
-        <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+        <ScrollView
+          contentContainerStyle={[
+            styles.scrollContent,
+            { paddingBottom: tabBarHeight + Spacing.xxl },
+          ]}
+          showsVerticalScrollIndicator={false}
+        >
           {/* 연결 요청 */}
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>연결 요청 {requests.length > 0 ? `(${requests.length})` : ''}</Text>
+            <View style={styles.sectionHead}>
+              <Text style={styles.sectionTitle}>연결 요청</Text>
+              {requests.length > 0 && (
+                <View style={styles.countPill}>
+                  <Text style={styles.countText}>{requests.length}</Text>
+                </View>
+              )}
+            </View>
+
             {requests.length === 0 ? (
-              <Text style={styles.emptyText}>대기 중인 연결 요청이 없습니다.</Text>
+              <Text style={styles.emptyText}>대기 중인 연결 요청이 없어요.</Text>
             ) : (
-              <View style={{ gap: 10 }}>
+              <View style={styles.cards}>
                 {requests.map((item) => (
-                  <View key={item.id} style={styles.requestCard}>
-                    <Text style={styles.memberName}>{item.memberName}</Text>
-                    <View style={styles.actionRow}>
-                      <TouchableOpacity
-                        style={[styles.actionButton, styles.rejectButton, processingID === item.id && styles.buttonDisabled]}
-                        onPress={() => handleRespond(item.id, 'reject')}
-                        disabled={processingID === item.id}
-                        activeOpacity={0.8}
-                      >
-                        <Text style={styles.rejectButtonText}>거절</Text>
-                      </TouchableOpacity>
-                      <TouchableOpacity
-                        style={[styles.actionButton, styles.approveButton, processingID === item.id && styles.buttonDisabled]}
-                        onPress={() => handleRespond(item.id, 'approve')}
-                        disabled={processingID === item.id}
-                        activeOpacity={0.8}
-                      >
-                        <Text style={styles.approveButtonText}>승인</Text>
-                      </TouchableOpacity>
+                  <SurfaceCard key={item.id} style={styles.requestCard}>
+                    <View style={styles.personRow}>
+                      <Avatar name={item.memberName} size={44} />
+                      <Text style={styles.personName}>{item.memberName}</Text>
                     </View>
-                  </View>
+                    <View style={styles.actions}>
+                      <AppButton
+                        label="거절"
+                        variant="outlined"
+                        onPress={() => handleRespond(item, 'reject')}
+                        disabled={processingID === item.id}
+                        style={styles.actionButton}
+                      />
+                      <AppButton
+                        label="승인"
+                        onPress={() => handleRespond(item, 'approve')}
+                        loading={processingID === item.id}
+                        style={styles.actionButton}
+                      />
+                    </View>
+                  </SurfaceCard>
                 ))}
               </View>
             )}
           </View>
 
-          {/* 내 성도 목록 */}
+          {/* 내 성도 */}
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>내 성도 {members.length > 0 ? `(${members.length})` : ''}</Text>
+            <View style={styles.sectionHead}>
+              <Text style={styles.sectionTitle}>내 성도</Text>
+              {members.length > 0 && (
+                <View style={styles.countPill}>
+                  <Text style={styles.countText}>{members.length}</Text>
+                </View>
+              )}
+            </View>
+
             {members.length === 0 ? (
-              <Text style={styles.emptyText}>아직 연결된 성도가 없습니다.</Text>
+              <Text style={styles.emptyText}>아직 연결된 성도가 없어요.</Text>
             ) : (
-              <View style={{ gap: 10 }}>
+              <View style={styles.cards}>
                 {members.map((item) => (
-                  <View key={item.loginID} style={styles.memberCard}>
-                    <Text style={styles.memberName}>{item.name}</Text>
-                    <Text style={styles.memberLoginID}>@{item.loginID}</Text>
-                  </View>
+                  <SurfaceCard key={item.loginID} style={styles.memberCard}>
+                    <Avatar name={item.name} size={40} />
+                    <View style={styles.memberText}>
+                      <Text style={styles.personName}>{item.name}</Text>
+                      <Text style={styles.memberID}>@{item.loginID}</Text>
+                    </View>
+                  </SurfaceCard>
                 ))}
               </View>
             )}
@@ -141,60 +178,49 @@ export default function PastorManageScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#FFFFFF' },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 20,
-    paddingBottom: 16,
-    gap: 8,
-  },
-  headerTitleGroup: { flexShrink: 1 },
-  title: { fontSize: 28, fontWeight: 'bold', color: '#000000' },
-  subtitle: { fontSize: 13, color: '#999999', marginTop: 2 },
-  avatar: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: '#000000',
-    alignItems: 'center',
-    justifyContent: 'center',
-    flexShrink: 0,
-  },
-  avatarText: { color: '#FFFFFF', fontSize: 15, fontWeight: 'bold' },
+  container: { flex: 1, backgroundColor: Palette.background },
+  scrollContent: { paddingHorizontal: Spacing.xl, paddingTop: Spacing.xs },
 
-  scrollContent: { paddingHorizontal: 20, paddingBottom: 24, gap: 28 },
-  section: { gap: 10 },
-  sectionTitle: { fontSize: 16, fontWeight: '700', color: '#000000' },
-  emptyText: { fontSize: 14, color: '#999999' },
-
-  requestCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    backgroundColor: '#F8F8F8',
-    borderRadius: 12,
-    padding: 16,
+  section: { marginBottom: Spacing.xxxl },
+  sectionHead: { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: Spacing.md },
+  sectionTitle: {
+    fontSize: Type.titleMedium.fontSize,
+    fontWeight: Type.titleMedium.fontWeight,
+    letterSpacing: Type.titleMedium.letterSpacing,
+    color: Palette.onSurface,
   },
-  memberName: { fontSize: 15, fontWeight: '600', color: '#000000' },
-  actionRow: { flexDirection: 'row', gap: 8 },
-  actionButton: { paddingHorizontal: 14, paddingVertical: 8, borderRadius: 8 },
-  approveButton: { backgroundColor: '#000000' },
-  approveButtonText: { color: '#FFFFFF', fontSize: 13, fontWeight: '600' },
-  rejectButton: { backgroundColor: '#F0F0F0' },
-  rejectButtonText: { color: '#666666', fontSize: 13, fontWeight: '600' },
-  buttonDisabled: { opacity: 0.5 },
-
-  memberCard: {
-    flexDirection: 'row',
+  countPill: {
+    minWidth: 22,
+    paddingHorizontal: 7,
+    paddingVertical: 1,
+    borderRadius: Radius.full,
+    backgroundColor: Palette.primaryContainer,
     alignItems: 'center',
-    justifyContent: 'space-between',
-    backgroundColor: '#F8F8F8',
-    borderRadius: 12,
-    padding: 16,
   },
-  memberLoginID: { fontSize: 13, color: '#999999' },
+  countText: {
+    fontSize: Type.labelSmall.fontSize,
+    fontWeight: '700',
+    color: Palette.onPrimaryContainer,
+  },
+  emptyText: {
+    fontSize: Type.bodyMedium.fontSize,
+    color: Palette.onSurfaceVariant,
+    paddingVertical: Spacing.lg,
+  },
 
-  centerBox: { flex: 1, alignItems: 'center', justifyContent: 'center' },
+  cards: { gap: Spacing.md },
+  requestCard: { gap: Spacing.md },
+  personRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.md },
+  personName: {
+    fontSize: Type.titleSmall.fontSize,
+    fontWeight: Type.titleSmall.fontWeight,
+    color: Palette.onSurface,
+    flexShrink: 1,
+  },
+  actions: { flexDirection: 'row', gap: Spacing.sm },
+  actionButton: { flex: 1, minHeight: 44 },
+
+  memberCard: { flexDirection: 'row', alignItems: 'center', gap: Spacing.md },
+  memberText: { flexShrink: 1 },
+  memberID: { fontSize: Type.labelSmall.fontSize, fontWeight: '400', color: Palette.onSurfaceVariant },
 });

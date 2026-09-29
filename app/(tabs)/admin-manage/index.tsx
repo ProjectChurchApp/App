@@ -4,18 +4,28 @@
 import { useBottomTabBarHeight } from '@react-navigation/bottom-tabs';
 import { useFocusEffect } from 'expo-router';
 import { useCallback, useState } from 'react';
-import { ActivityIndicator, FlatList, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { FlatList, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { errorMessage, useFeedback } from '../../../components/ui/Feedback';
+import {
+  AppButton,
+  Avatar,
+  EmptyState,
+  ScreenHeader,
+  SkeletonList,
+  SurfaceCard,
+} from '../../../components/ui/primitives';
+import { Palette, Spacing, Type } from '../../../constants/design';
 import { useAuth } from '../../../contexts/AuthContext';
 import { PastorRequest } from '../../../types/user';
 import { api } from '../../../utils/api';
-import { useFeedback } from '../../../components/ui/Feedback';
+import { formatDate } from '../../../utils/date';
 
 export default function AdminManageScreen() {
   const insets = useSafeAreaInsets();
-  const { toast } = useFeedback();
   const tabBarHeight = useBottomTabBarHeight();
   const { user } = useAuth();
+  const { toast, confirm } = useFeedback();
 
   const [requests, setRequests] = useState<PastorRequest[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -27,12 +37,11 @@ export default function AdminManageScreen() {
       const res = await api.get<PastorRequest[]>('/admin/pastor-requests');
       setRequests(res.data);
     } catch (e: any) {
-      const msg = e?.response?.data?.message ?? e?.message ?? '오류가 발생했습니다.';
-      toast(msg, 'error');
+      toast(errorMessage(e), 'error');
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [toast]);
 
   useFocusEffect(
     useCallback(() => {
@@ -40,75 +49,92 @@ export default function AdminManageScreen() {
     }, [fetchData])
   );
 
-  const handleRespond = async (userId: number, action: 'approve' | 'reject') => {
-    setProcessingID(userId);
+  const handleRespond = async (item: PastorRequest, action: 'approve' | 'reject') => {
+    if (action === 'reject') {
+      const ok = await confirm({
+        title: `${item.name}님의 목사 신청을 거절할까요?`,
+        message: '거절하면 해당 계정은 목사 권한을 받지 못합니다.',
+        confirmLabel: '거절',
+        destructive: true,
+      });
+      if (!ok) return;
+    }
+
+    setProcessingID(item.userId);
     try {
-      await api.post(`/admin/pastor-requests/${userId}/${action}`);
-      setRequests((prev) => prev.filter((r) => r.userId !== userId));
+      await api.post(`/admin/pastor-requests/${item.userId}/${action}`);
+      setRequests((prev) => prev.filter((r) => r.userId !== item.userId));
+      toast(
+        action === 'approve' ? `${item.name}님을 목사님으로 승인했어요.` : '신청을 거절했어요.',
+        action === 'approve' ? 'success' : 'info'
+      );
     } catch (e: any) {
-      const msg = e?.response?.data?.message ?? e?.message ?? '오류가 발생했습니다.';
-      toast(msg, 'error');
+      toast(errorMessage(e), 'error');
     } finally {
       setProcessingID(null);
     }
   };
 
   return (
-    <View style={[styles.container, { paddingBottom: tabBarHeight }]}>
-      {/* 헤더 */}
-      <View style={[styles.header, { paddingTop: insets.top + 16 }]}>
-        <View style={styles.headerTitleGroup}>
-          <Text style={styles.title}>승인 관리</Text>
-          <Text style={styles.subtitle}>목사 가입 승인</Text>
-        </View>
-        <View style={styles.avatar}>
-          <Text style={styles.avatarText}>
-            {user?.name?.charAt(0).toUpperCase() ?? '?'}
-          </Text>
-        </View>
-      </View>
+    <View style={styles.container}>
+      <ScreenHeader
+        title="승인 관리"
+        subtitle={
+          requests.length > 0
+            ? `승인을 기다리는 신청 ${requests.length}건`
+            : '목사 가입 승인'
+        }
+        paddingTop={insets.top + Spacing.lg}
+        right={<Avatar name={user?.name} />}
+      />
 
       {isLoading ? (
-        <View style={styles.centerBox}>
-          <ActivityIndicator size="large" color="#000000" />
-        </View>
+        <SkeletonList count={3} />
       ) : requests.length === 0 ? (
-        <View style={styles.centerBox}>
-          <Text style={styles.emptyText}>승인 대기 중인 목사 신청이 없습니다.</Text>
-        </View>
+        <EmptyState
+          icon="check-circle-outline"
+          title="처리할 신청이 없어요"
+          description="목사님이 가입 신청하면 이곳에서 승인할 수 있어요."
+        />
       ) : (
         <FlatList
           data={requests}
           keyExtractor={(item) => String(item.userId)}
-          contentContainerStyle={styles.listContent}
+          contentContainerStyle={[
+            styles.listContent,
+            { paddingBottom: tabBarHeight + Spacing.xxl },
+          ]}
           ItemSeparatorComponent={() => <View style={styles.separator} />}
           onRefresh={fetchData}
           refreshing={isLoading}
           renderItem={({ item }) => (
-            <View style={styles.requestCard}>
-              <View>
-                <Text style={styles.pastorName}>{item.name} 목사</Text>
-                <Text style={styles.pastorLoginID}>@{item.loginID}</Text>
+            <SurfaceCard style={styles.card}>
+              <View style={styles.personRow}>
+                <Avatar name={item.name} size={44} />
+                <View style={styles.personText}>
+                  <Text style={styles.personName}>{item.name}</Text>
+                  <Text style={styles.personMeta}>
+                    @{item.loginID} · {formatDate(item.requestedAt)} 신청
+                  </Text>
+                </View>
               </View>
-              <View style={styles.actionRow}>
-                <TouchableOpacity
-                  style={[styles.actionButton, styles.rejectButton, processingID === item.userId && styles.buttonDisabled]}
-                  onPress={() => handleRespond(item.userId, 'reject')}
+
+              <View style={styles.actions}>
+                <AppButton
+                  label="거절"
+                  variant="outlined"
+                  onPress={() => handleRespond(item, 'reject')}
                   disabled={processingID === item.userId}
-                  activeOpacity={0.8}
-                >
-                  <Text style={styles.rejectButtonText}>거절</Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={[styles.actionButton, styles.approveButton, processingID === item.userId && styles.buttonDisabled]}
-                  onPress={() => handleRespond(item.userId, 'approve')}
-                  disabled={processingID === item.userId}
-                  activeOpacity={0.8}
-                >
-                  <Text style={styles.approveButtonText}>승인</Text>
-                </TouchableOpacity>
+                  style={styles.actionButton}
+                />
+                <AppButton
+                  label="승인"
+                  onPress={() => handleRespond(item, 'approve')}
+                  loading={processingID === item.userId}
+                  style={styles.actionButton}
+                />
               </View>
-            </View>
+            </SurfaceCard>
           )}
         />
       )}
@@ -117,52 +143,25 @@ export default function AdminManageScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#FFFFFF' },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 20,
-    paddingBottom: 16,
-    gap: 8,
-  },
-  headerTitleGroup: { flexShrink: 1 },
-  title: { fontSize: 28, fontWeight: 'bold', color: '#000000' },
-  subtitle: { fontSize: 13, color: '#999999', marginTop: 2 },
-  avatar: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: '#000000',
-    alignItems: 'center',
-    justifyContent: 'center',
-    flexShrink: 0,
-  },
-  avatarText: { color: '#FFFFFF', fontSize: 15, fontWeight: 'bold' },
+  container: { flex: 1, backgroundColor: Palette.background },
+  listContent: { paddingHorizontal: Spacing.xl, paddingTop: Spacing.xs },
+  separator: { height: Spacing.md },
 
-  listContent: { paddingHorizontal: 20, paddingTop: 8, paddingBottom: 24 },
-  separator: { height: 10 },
-  requestCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    backgroundColor: '#F8F8F8',
-    borderRadius: 12,
-    padding: 16,
+  card: { gap: Spacing.md },
+  personRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.md },
+  personText: { flexShrink: 1 },
+  personName: {
+    fontSize: Type.titleSmall.fontSize,
+    fontWeight: Type.titleSmall.fontWeight,
+    color: Palette.onSurface,
   },
-  pastorName: { fontSize: 15, fontWeight: '600', color: '#000000' },
-  pastorLoginID: { fontSize: 12, color: '#999999', marginTop: 2 },
-  actionRow: { flexDirection: 'row', gap: 8 },
-  actionButton: {
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    borderRadius: 8,
+  personMeta: {
+    fontSize: Type.labelSmall.fontSize,
+    fontWeight: '400',
+    color: Palette.onSurfaceVariant,
+    marginTop: 1,
   },
-  approveButton: { backgroundColor: '#000000' },
-  approveButtonText: { color: '#FFFFFF', fontSize: 13, fontWeight: '600' },
-  rejectButton: { backgroundColor: '#F0F0F0' },
-  rejectButtonText: { color: '#666666', fontSize: 13, fontWeight: '600' },
-  buttonDisabled: { opacity: 0.5 },
-  centerBox: { flex: 1, alignItems: 'center', justifyContent: 'center' },
-  emptyText: { fontSize: 15, color: '#999999' },
+
+  actions: { flexDirection: 'row', gap: Spacing.sm },
+  actionButton: { flex: 1, minHeight: 44 },
 });

@@ -1,28 +1,51 @@
 // app/(tabs)/connect/index.tsx
 // 성도 전용: 목사님과 연결 요청
 
+import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import { useBottomTabBarHeight } from '@react-navigation/bottom-tabs';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { useCallback, useState } from 'react';
-import { ActivityIndicator, FlatList, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { FlatList, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { errorMessage, useFeedback } from '../../../components/ui/Feedback';
+import {
+  AppButton,
+  Avatar,
+  Chip,
+  EmptyState,
+  ScreenHeader,
+  SkeletonList,
+  SurfaceCard,
+} from '../../../components/ui/primitives';
+import { ICON_SM, Palette, Radius, Spacing, Type } from '../../../constants/design';
 import { useAuth } from '../../../contexts/AuthContext';
 import { Connection, ConnectionStatus, PastorOption } from '../../../types/connection';
 import { api } from '../../../utils/api';
-import { useFeedback } from '../../../components/ui/Feedback';
 
-const STATUS_LABELS: Record<ConnectionStatus, string> = {
-  PENDING: '승인 대기 중',
-  APPROVED: '연결됨',
-  REJECTED: '거절됨',
+const STATUS_TONE: Record<ConnectionStatus, { label: string; fg: string; bg: string }> = {
+  PENDING: {
+    label: '승인 대기 중',
+    fg: Palette.onWarningContainer,
+    bg: Palette.warningContainer,
+  },
+  APPROVED: {
+    label: '연결됨',
+    fg: Palette.onSuccessContainer,
+    bg: Palette.successContainer,
+  },
+  REJECTED: {
+    label: '거절됨',
+    fg: Palette.onDangerContainer,
+    bg: Palette.dangerContainer,
+  },
 };
 
 export default function ConnectScreen() {
   const insets = useSafeAreaInsets();
-  const { toast } = useFeedback();
   const tabBarHeight = useBottomTabBarHeight();
   const router = useRouter();
   const { user } = useAuth();
+  const { toast } = useFeedback();
 
   const [pastors, setPastors] = useState<PastorOption[]>([]);
   const [connection, setConnection] = useState<Connection | null>(null);
@@ -39,12 +62,11 @@ export default function ConnectScreen() {
       setPastors(pastorsRes.data);
       setConnection(connectionRes.data);
     } catch (e: any) {
-      const msg = e?.response?.data?.message ?? e?.message ?? '오류가 발생했습니다.';
-      toast(msg, 'error');
+      toast(errorMessage(e), 'error');
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [toast]);
 
   useFocusEffect(
     useCallback(() => {
@@ -57,9 +79,9 @@ export default function ConnectScreen() {
     try {
       await api.post('/connections', { pastorLoginID });
       await fetchData();
+      toast('연결을 요청했어요. 목사님 승인을 기다려주세요.', 'success');
     } catch (e: any) {
-      const msg = e?.response?.data?.message ?? e?.message ?? '오류가 발생했습니다.';
-      toast(msg, 'error');
+      toast(errorMessage(e), 'error');
     } finally {
       setRequestingLoginID(null);
     }
@@ -68,67 +90,80 @@ export default function ConnectScreen() {
   const showPastorList = !isLoading && (!connection || connection.status === 'REJECTED');
 
   return (
-    <View style={[styles.container, { paddingBottom: tabBarHeight }]}>
-      <View style={[styles.header, { paddingTop: insets.top + 16 }]}>
-        <View style={styles.headerTitleGroup}>
-          <Text style={styles.title}>목사님과 연결</Text>
-          <Text style={styles.subtitle}>연결하면 기도 공유가 가능해요</Text>
-        </View>
-        <TouchableOpacity
-          style={styles.avatar}
-          onPress={() => router.push('/(tabs)/profile')}
-          activeOpacity={0.8}
-        >
-          <Text style={styles.avatarText}>
-            {user?.name?.charAt(0).toUpperCase() ?? '?'}
-          </Text>
-        </TouchableOpacity>
-      </View>
+    <View style={styles.container}>
+      <ScreenHeader
+        title="목사님과 연결"
+        subtitle="연결하면 기도를 함께 나눌 수 있어요"
+        paddingTop={insets.top + Spacing.lg}
+        right={<Avatar name={user?.name} onPress={() => router.push('/(tabs)/profile')} />}
+      />
 
       {connection && (
         <View style={styles.statusCard}>
-          <Text style={styles.statusCardText}>
-            {connection.pastorName} 목사님 — {STATUS_LABELS[connection.status]}
-          </Text>
+          <MaterialCommunityIcons
+            name="account-heart-outline"
+            size={ICON_SM}
+            color={Palette.primary}
+          />
+          <Text style={styles.statusText}>{connection.pastorName} 목사님</Text>
+          <Chip tone={STATUS_TONE[connection.status]} />
         </View>
       )}
 
       {isLoading ? (
-        <View style={styles.centerBox}>
-          <ActivityIndicator size="large" color="#000000" />
-        </View>
+        <SkeletonList count={3} />
       ) : !showPastorList ? (
-        <View style={styles.centerBox}>
-          <Text style={styles.emptyText}>
-            {connection?.status === 'APPROVED'
-              ? '이미 목사님과 연결되어 있어요.'
-              : '연결 승인을 기다리고 있어요.'}
-          </Text>
-        </View>
+        <EmptyState
+          icon={connection?.status === 'APPROVED' ? 'check-circle-outline' : 'clock-outline'}
+          title={
+            connection?.status === 'APPROVED'
+              ? '목사님과 연결되어 있어요'
+              : '연결 승인을 기다리고 있어요'
+          }
+          description={
+            connection?.status === 'APPROVED'
+              ? '나의기도에서 기도를 목사님께 보낼 수 있어요.'
+              : '목사님이 승인하면 알려드릴게요.'
+          }
+          actionLabel={connection?.status === 'APPROVED' ? '나의기도로 가기' : undefined}
+          onAction={
+            connection?.status === 'APPROVED'
+              ? () => router.push('/(tabs)/my-prayer' as any)
+              : undefined
+          }
+        />
       ) : pastors.length === 0 ? (
-        <View style={styles.centerBox}>
-          <Text style={styles.emptyText}>연결 가능한 목사님이 없습니다.</Text>
-        </View>
+        <EmptyState
+          icon="account-search-outline"
+          title="연결 가능한 목사님이 없어요"
+          description="목사님 계정이 관리자 승인을 받으면 이곳에 표시됩니다."
+        />
       ) : (
         <FlatList
           data={pastors}
           keyExtractor={(item) => item.loginID}
-          contentContainerStyle={styles.listContent}
+          contentContainerStyle={[
+            styles.listContent,
+            { paddingBottom: tabBarHeight + Spacing.xxl },
+          ]}
           ItemSeparatorComponent={() => <View style={styles.separator} />}
           renderItem={({ item }) => (
-            <View style={styles.pastorCard}>
-              <Text style={styles.pastorName}>{item.name} 목사님</Text>
-              <TouchableOpacity
-                style={[styles.requestButton, requestingLoginID === item.loginID && styles.buttonDisabled]}
+            <SurfaceCard style={styles.pastorCard}>
+              <View style={styles.pastorLeft}>
+                <Avatar name={item.name} size={44} />
+                <View style={styles.pastorText}>
+                  <Text style={styles.pastorName}>{item.name} 목사님</Text>
+                  <Text style={styles.pastorID}>@{item.loginID}</Text>
+                </View>
+              </View>
+              <AppButton
+                label="연결 요청"
+                variant="tonal"
                 onPress={() => handleRequest(item.loginID)}
-                disabled={requestingLoginID === item.loginID}
-                activeOpacity={0.8}
-              >
-                <Text style={styles.requestButtonText}>
-                  {requestingLoginID === item.loginID ? '요청 중...' : '연결 요청'}
-                </Text>
-              </TouchableOpacity>
-            </View>
+                loading={requestingLoginID === item.loginID}
+                style={styles.requestButton}
+              />
+            </SurfaceCard>
           )}
         />
       )}
@@ -137,55 +172,36 @@ export default function ConnectScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#FFFFFF' },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 20,
-    paddingBottom: 16,
-    gap: 8,
-  },
-  headerTitleGroup: { flexShrink: 1 },
-  title: { fontSize: 28, fontWeight: 'bold', color: '#000000' },
-  subtitle: { fontSize: 13, color: '#999999', marginTop: 2 },
-  avatar: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: '#000000',
-    alignItems: 'center',
-    justifyContent: 'center',
-    flexShrink: 0,
-  },
-  avatarText: { color: '#FFFFFF', fontSize: 15, fontWeight: 'bold' },
+  container: { flex: 1, backgroundColor: Palette.background },
+
   statusCard: {
-    marginHorizontal: 20,
-    marginBottom: 12,
-    padding: 14,
-    borderRadius: 12,
-    backgroundColor: '#FFF3E0',
-  },
-  statusCardText: { fontSize: 14, fontWeight: '600', color: '#B8752E' },
-  listContent: { paddingHorizontal: 20, paddingTop: 8, paddingBottom: 24 },
-  separator: { height: 10 },
-  pastorCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    backgroundColor: '#F8F8F8',
-    borderRadius: 12,
-    padding: 16,
+    gap: Spacing.sm,
+    marginHorizontal: Spacing.xl,
+    marginBottom: Spacing.lg,
+    padding: Spacing.lg,
+    borderRadius: Radius.md,
+    backgroundColor: Palette.primaryContainer,
   },
-  pastorName: { fontSize: 15, fontWeight: '600', color: '#000000' },
-  requestButton: {
-    backgroundColor: '#000000',
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    borderRadius: 8,
+  statusText: {
+    flex: 1,
+    fontSize: Type.titleSmall.fontSize,
+    fontWeight: Type.titleSmall.fontWeight,
+    color: Palette.onPrimaryContainer,
   },
-  buttonDisabled: { opacity: 0.5 },
-  requestButtonText: { color: '#FFFFFF', fontSize: 13, fontWeight: '600' },
-  centerBox: { flex: 1, alignItems: 'center', justifyContent: 'center' },
-  emptyText: { fontSize: 15, color: '#999999', textAlign: 'center', paddingHorizontal: 20 },
+
+  listContent: { paddingHorizontal: Spacing.xl, paddingTop: Spacing.xs },
+  separator: { height: Spacing.md },
+
+  pastorCard: { flexDirection: 'row', alignItems: 'center', gap: Spacing.md },
+  pastorLeft: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: Spacing.md, minWidth: 0 },
+  pastorText: { flexShrink: 1 },
+  pastorName: {
+    fontSize: Type.titleSmall.fontSize,
+    fontWeight: Type.titleSmall.fontWeight,
+    color: Palette.onSurface,
+  },
+  pastorID: { fontSize: Type.labelSmall.fontSize, fontWeight: '400', color: Palette.onSurfaceVariant },
+  requestButton: { paddingHorizontal: Spacing.lg, minHeight: 42 },
 });

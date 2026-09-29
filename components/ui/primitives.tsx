@@ -3,9 +3,10 @@
 // 칸 사이에는 선이 없다.
 
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
-import { ReactNode, useEffect, useRef } from 'react';
+import { ReactNode, useEffect, useRef, useState } from 'react';
 import {
   Animated,
+  Modal,
   Platform,
   Pressable,
   StyleProp,
@@ -357,22 +358,103 @@ export function SkeletonList({ count = 4 }: { count?: number }) {
 export function ScreenHeader({
   title,
   subtitle,
+  greeting,
   paddingTop,
   right,
 }: {
   title: string;
   subtitle?: string;
+  /** 제목 위에 얹는 인사말. 목록 첫 화면의 딱딱함을 덜어준다. */
+  greeting?: string;
   paddingTop: number;
   right?: ReactNode;
 }) {
   return (
     <View style={[styles.header, { paddingTop }]}>
       <View style={styles.headerText}>
+        {greeting && <Text style={styles.headerGreeting}>{greeting}</Text>}
         <Text style={styles.headerTitle}>{title}</Text>
         {subtitle && <Text style={styles.headerSubtitle}>{subtitle}</Text>}
       </View>
       {right}
     </View>
+  );
+}
+
+/** 현재 값을 보여주고 누르면 선택지가 뜨는 드롭다운. 고른 항목에는 체크가 붙는다. */
+export function SelectMenu<T extends string>({
+  label,
+  options,
+  value,
+  onChange,
+  tone,
+  disabled,
+}: {
+  label: string;
+  options: Segment<T>[];
+  value: T;
+  onChange: (value: T) => void;
+  tone?: { fg: string; bg: string };
+  disabled?: boolean;
+}) {
+  const [open, setOpen] = useState(false);
+  const current = options.find((o) => o.value === value);
+
+  return (
+    <>
+      <Pressable
+        onPress={() => setOpen(true)}
+        disabled={disabled}
+        accessibilityRole="button"
+        accessibilityLabel={`${label}, 현재 ${current?.label ?? ''}. 눌러서 변경`}
+        android_ripple={ripple('rgba(107,45,107,0.15)')}
+        style={({ pressed }) => [
+          styles.selectTrigger,
+          tone ? { backgroundColor: tone.bg } : null,
+          (pressed || disabled) && { opacity: 0.7 },
+        ]}
+      >
+        <Text style={[styles.selectTriggerText, tone ? { color: tone.fg } : null]}>
+          {current?.label ?? label}
+        </Text>
+        <MaterialCommunityIcons
+          name="chevron-down"
+          size={18}
+          color={tone?.fg ?? Palette.onSurfaceVariant}
+        />
+      </Pressable>
+
+      <Modal visible={open} transparent animationType="fade" onRequestClose={() => setOpen(false)}>
+        <Pressable style={styles.menuScrim} onPress={() => setOpen(false)}>
+          <Pressable style={styles.menu} onPress={(e) => e.stopPropagation()}>
+            <Text style={styles.menuTitle}>{label}</Text>
+            {options.map((opt) => {
+              const selected = opt.value === value;
+              return (
+                <Pressable
+                  key={opt.value}
+                  onPress={() => {
+                    setOpen(false);
+                    if (!selected) onChange(opt.value);
+                  }}
+                  accessibilityRole="menuitem"
+                  accessibilityState={{ selected }}
+                  android_ripple={ripple('rgba(107,45,107,0.12)')}
+                  style={styles.menuItem}
+                >
+                  <Text style={[styles.menuItemText, selected && styles.menuItemTextSelected]}>
+                    {opt.label}
+                  </Text>
+                  {selected && (
+                    <MaterialCommunityIcons name="check" size={20} color={Palette.primary} />
+                  )}
+                </Pressable>
+              );
+            })}
+          </Pressable>
+        </Pressable>
+      </Modal>
+    </>
   );
 }
 
@@ -577,15 +659,62 @@ const styles = StyleSheet.create({
 
   header: {
     flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'flex-end',
     justifyContent: 'space-between',
     paddingHorizontal: Spacing.xl,
-    paddingBottom: Spacing.md,
+    paddingBottom: Spacing.lg,
     gap: Spacing.sm,
   },
   headerText: { flexShrink: 1 },
-  headerTitle: { ...t(Type.headlineSmall), color: Palette.onSurface },
+  headerTitle: { ...t(Type.headlineLarge), color: Palette.onSurface },
   headerSubtitle: { ...t(Type.bodySmall), color: Palette.onSurfaceVariant, marginTop: 2 },
+  headerGreeting: { ...t(Type.label), color: Palette.primary, marginBottom: 2 },
+
+  selectTrigger: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    minHeight: 40,
+    paddingLeft: Spacing.md,
+    paddingRight: Spacing.sm,
+    borderRadius: Radius.sm,
+    backgroundColor: Palette.track,
+    alignSelf: 'flex-start',
+    overflow: 'hidden',
+  },
+  selectTriggerText: { ...t(Type.label), color: Palette.onSurfaceVariant },
+
+  menuScrim: {
+    flex: 1,
+    backgroundColor: Palette.scrim,
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: Spacing.xxl,
+  },
+  menu: {
+    width: '100%',
+    maxWidth: 320,
+    backgroundColor: Palette.surface,
+    borderRadius: Radius.lg,
+    paddingVertical: Spacing.sm,
+    ...Elevation.level3,
+  },
+  menuTitle: {
+    ...t(Type.labelSmall),
+    color: Palette.onSurfaceVariant,
+    paddingHorizontal: Spacing.xl,
+    paddingTop: Spacing.sm,
+    paddingBottom: Spacing.xs,
+  },
+  menuItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    minHeight: MIN_TOUCH,
+    paddingHorizontal: Spacing.xl,
+  },
+  menuItemText: { ...t(Type.bodyLarge), color: Palette.onSurface },
+  menuItemTextSelected: { color: Palette.primary, fontWeight: '700' },
 
   avatar: {
     borderRadius: Radius.full,
