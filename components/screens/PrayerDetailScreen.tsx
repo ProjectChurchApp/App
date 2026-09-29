@@ -1,35 +1,60 @@
 // components/screens/PrayerDetailScreen.tsx
 // 나의기도 / 성도기도요청 / 중보기도 탭에서 공통으로 쓰는 기도 상세 화면
 
+import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import { useBottomTabBarHeight } from '@react-navigation/bottom-tabs';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
 import {
-    ActivityIndicator,
-    Alert,
-    KeyboardAvoidingView,
-    Platform,
-    ScrollView,
-    StyleSheet,
-    Text,
-    TouchableOpacity,
-    View,
+  ActivityIndicator,
+  KeyboardAvoidingView,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { Palette, Radius, Spacing, Type } from '../../constants/design';
+import { STATUS_META, STATUS_ORDER, visibilityMeta } from '../../constants/prayerMeta';
 import { useAuth } from '../../contexts/AuthContext';
 import { CommentItem } from '../../types/comment';
 import { PrayerItem, PrayerStatus } from '../../types/prayer';
 import { api } from '../../utils/api';
 import { formatDateFull, formatDateOnly } from '../../utils/date';
 import { CommentInputBar, CommentList } from '../CommentSection';
+import { errorMessage, useFeedback } from '../ui/Feedback';
+import { AppButton, Chip, SegmentedButtons } from '../ui/primitives';
 
 type PrayerDetail = PrayerItem;
 
-const STATUS_LABELS: Record<PrayerStatus, string> = {
-  PRAYING: '🙏 기도중',
-  ANSWERED: '✅ 응답',
-  CLOSED: '🔚 종료',
-};
+// ─── 아이콘 버튼 ─────────────────────────────────────────
+function IconButton({
+  icon,
+  label,
+  onPress,
+  disabled,
+  tone = Palette.onSurfaceVariant,
+}: {
+  icon: keyof typeof MaterialCommunityIcons.glyphMap;
+  label: string;
+  onPress: () => void;
+  disabled?: boolean;
+  tone?: string;
+}) {
+  return (
+    <Pressable
+      onPress={onPress}
+      disabled={disabled}
+      accessibilityRole="button"
+      accessibilityLabel={label}
+      android_ripple={{ color: 'rgba(107,45,107,0.15)', borderless: true, radius: 22 }}
+      style={({ pressed }) => [styles.iconButton, (pressed || disabled) && { opacity: 0.55 }]}
+    >
+      <MaterialCommunityIcons name={icon} size={21} color={tone} />
+    </Pressable>
+  );
+}
 
 // ─── 메인 화면 ───────────────────────────────────────────
 export function PrayerDetailScreen() {
@@ -38,6 +63,7 @@ export function PrayerDetailScreen() {
   const tabBarHeight = useBottomTabBarHeight();
   const router = useRouter();
   const { user } = useAuth();
+  const { toast, confirm } = useFeedback();
 
   const [prayer, setPrayer] = useState<PrayerDetail | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -62,13 +88,8 @@ export function PrayerDetailScreen() {
       setPrayer(prayerRes.data);
       setComments(commentsRes.data);
     } catch (e: any) {
-      const msg = e?.response?.data?.message ?? e?.message ?? '오류가 발생했습니다.';
-      if (Platform.OS === 'web') {
-        window.alert(msg);
-        router.back();
-      } else {
-        Alert.alert('오류', msg, [{ text: '확인', onPress: () => router.back() }]);
-      }
+      toast(errorMessage(e), 'error');
+      router.back();
     } finally {
       setIsLoading(false);
     }
@@ -79,33 +100,30 @@ export function PrayerDetailScreen() {
   }, [id]);
 
   // ── 삭제 ──────────────────────────────────────────────
-  const handleDelete = () => {
-    const doDelete = async () => {
-      setIsDeleting(true);
-      try {
-        await api.delete(`/prayer/${id}`);
-        router.back();
-      } catch (e: any) {
-        const msg = e?.response?.data?.message ?? e?.message ?? '삭제에 실패했습니다.';
-        Platform.OS === 'web' ? window.alert(msg) : Alert.alert('오류', msg);
-      } finally {
-        setIsDeleting(false);
-      }
-    };
+  const handleDelete = async () => {
+    const ok = await confirm({
+      title: '기도 요청을 삭제할까요?',
+      message: '삭제하면 댓글과 기도 기록도 함께 사라지고 되돌릴 수 없습니다.',
+      confirmLabel: '삭제',
+      destructive: true,
+    });
+    if (!ok) return;
 
-    if (Platform.OS === 'web') {
-      if (window.confirm('기도 요청을 삭제하시겠습니까?')) doDelete();
-    } else {
-      Alert.alert('삭제', '기도 요청을 삭제하시겠습니까?', [
-        { text: '취소', style: 'cancel' },
-        { text: '삭제', style: 'destructive', onPress: doDelete },
-      ]);
+    setIsDeleting(true);
+    try {
+      await api.delete(`/prayer/${id}`);
+      toast('삭제했습니다.', 'success');
+      router.back();
+    } catch (e: any) {
+      toast(errorMessage(e, '삭제하지 못했습니다.'), 'error');
+    } finally {
+      setIsDeleting(false);
     }
   };
 
   // ── 상태 변경 ─────────────────────────────────────────
   const handleChangeStatus = async (status: PrayerStatus) => {
-    if (!prayer || isUpdatingStatus) return;
+    if (!prayer || isUpdatingStatus || prayer.status === status) return;
     setIsUpdatingStatus(true);
     try {
       await api.put(`/prayer/${id}/status`, { status });
@@ -115,48 +133,41 @@ export function PrayerDetailScreen() {
         statusChangedAt: status === 'PRAYING' ? null : new Date().toISOString(),
       });
     } catch (e: any) {
-      const msg = e?.response?.data?.message ?? e?.message ?? '오류가 발생했습니다.';
-      Platform.OS === 'web' ? window.alert(msg) : Alert.alert('오류', msg);
+      toast(errorMessage(e), 'error');
     } finally {
       setIsUpdatingStatus(false);
     }
   };
 
   // ── 중보기도로 공유 ───────────────────────────────────
-  const handlePromote = () => {
-    const doPromote = async () => {
-      setIsPromoting(true);
-      try {
-        await api.post(`/prayer/${id}/promote`);
-        await fetchData();
-      } catch (e: any) {
-        const msg = e?.response?.data?.message ?? e?.message ?? '오류가 발생했습니다.';
-        Platform.OS === 'web' ? window.alert(msg) : Alert.alert('오류', msg);
-      } finally {
-        setIsPromoting(false);
-      }
-    };
+  const handlePromote = async () => {
+    const ok = await confirm({
+      title: '중보기도로 공유',
+      message: '중보기도 게시판에 올립니다. 목사님과 연결된 성도들이 함께 기도할 수 있게 됩니다.',
+      confirmLabel: '공유하기',
+    });
+    if (!ok) return;
 
-    const message = '이 기도를 중보기도 게시판에 공유하시겠습니까? 모든 성도에게 공개됩니다.';
-    if (Platform.OS === 'web') {
-      if (window.confirm(message)) doPromote();
-    } else {
-      Alert.alert('중보기도로 공유', message, [
-        { text: '취소', style: 'cancel' },
-        { text: '공유', onPress: doPromote },
-      ]);
+    setIsPromoting(true);
+    try {
+      await api.post(`/prayer/${id}/promote`);
+      await fetchData();
+      toast('중보기도 게시판에 올렸습니다.', 'success');
+    } catch (e: any) {
+      toast(errorMessage(e), 'error');
+    } finally {
+      setIsPromoting(false);
     }
   };
 
-  // ── 기도했어요 토글 ────────────────────────────────────
-  const handleTogglePray = async () => {
+  // ── 기도했어요 ────────────────────────────────────────
+  const handlePray = async () => {
     if (!prayer) return;
     try {
       const res = await api.post<{ prayerCount: number; hasPrayed: boolean }>(`/prayer/${id}/pray`);
       setPrayer({ ...prayer, prayerCount: res.data.prayerCount, hasPrayed: res.data.hasPrayed });
     } catch (e: any) {
-      const msg = e?.response?.data?.message ?? e?.message ?? '오류가 발생했습니다.';
-      Platform.OS === 'web' ? window.alert(msg) : Alert.alert('오류', msg);
+      toast(errorMessage(e), 'error');
     }
   };
 
@@ -181,32 +192,26 @@ export function PrayerDetailScreen() {
       }
       setCommentText('');
     } catch (e: any) {
-      const msg = e?.response?.data?.message ?? e?.message ?? '오류가 발생했습니다.';
-      Platform.OS === 'web' ? window.alert(msg) : Alert.alert('오류', msg);
+      toast(errorMessage(e), 'error');
     } finally {
       setIsSubmitting(false);
     }
   };
 
   // ── 댓글 삭제 ─────────────────────────────────────────
-  const handleDeleteComment = (commentId: number) => {
-    const doDelete = async () => {
-      try {
-        await api.delete(`/prayer/comments/${commentId}`);
-        setComments((prev) => prev.filter((c) => c.id !== commentId));
-      } catch (e: any) {
-        const msg = e?.response?.data?.message ?? e?.message ?? '삭제에 실패했습니다.';
-        Platform.OS === 'web' ? window.alert(msg) : Alert.alert('오류', msg);
-      }
-    };
+  const handleDeleteComment = async (commentId: number) => {
+    const ok = await confirm({
+      title: '댓글을 삭제할까요?',
+      confirmLabel: '삭제',
+      destructive: true,
+    });
+    if (!ok) return;
 
-    if (Platform.OS === 'web') {
-      if (window.confirm('댓글을 삭제하시겠습니까?')) doDelete();
-    } else {
-      Alert.alert('삭제', '댓글을 삭제하시겠습니까?', [
-        { text: '취소', style: 'cancel' },
-        { text: '삭제', style: 'destructive', onPress: doDelete },
-      ]);
+    try {
+      await api.delete(`/prayer/comments/${commentId}`);
+      setComments((prev) => prev.filter((c) => c.id !== commentId));
+    } catch (e: any) {
+      toast(errorMessage(e, '삭제하지 못했습니다.'), 'error');
     }
   };
 
@@ -218,7 +223,7 @@ export function PrayerDetailScreen() {
   if (isLoading) {
     return (
       <View style={[styles.container, styles.centerBox, { paddingTop: insets.top }]}>
-        <ActivityIndicator size="large" color="#000000" />
+        <ActivityIndicator size="large" color={Palette.primary} />
       </View>
     );
   }
@@ -231,50 +236,44 @@ export function PrayerDetailScreen() {
   const canManage = isPromoted ? isPromotingPastor : isOwner;
   const canPromote = isPastor && prayer.boardStage === 'SHARED_WITH_PASTOR';
 
+  const visibility = visibilityMeta(prayer);
+  const statusMeta = STATUS_META[prayer.status];
+
   return (
     <KeyboardAvoidingView
-        style={styles.container}
-        behavior="padding"
-        keyboardVerticalOffset={insets.top}
+      style={styles.container}
+      behavior="padding"
+      keyboardVerticalOffset={insets.top}
     >
-      {/* 헤더 */}
-      <View style={[styles.header, { paddingTop: insets.top + 16 }]}>
-        <TouchableOpacity onPress={() => router.back()} activeOpacity={0.7}>
-          <Text style={styles.backButtonText}>← 목록</Text>
-        </TouchableOpacity>
-
+      {/* 상단 바 */}
+      <View style={[styles.appBar, { paddingTop: insets.top + Spacing.sm }]}>
+        <IconButton icon="arrow-left" label="목록으로" onPress={() => router.back()} />
         {canManage && (
-          <View style={styles.headerActions}>
-            <TouchableOpacity
-              style={styles.editButton}
+          <View style={styles.appBarActions}>
+            <IconButton
+              icon="pencil-outline"
+              label="수정"
               onPress={() => router.push(`/(tabs)/my-prayer/write?id=${id}`)}
-              activeOpacity={0.8}
-            >
-              <Text style={styles.editButtonText}>수정</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[styles.deleteButton, isDeleting && styles.buttonDisabled]}
+            />
+            <IconButton
+              icon="trash-can-outline"
+              label="삭제"
+              tone={Palette.danger}
               onPress={handleDelete}
               disabled={isDeleting}
-              activeOpacity={0.8}
-            >
-              <Text style={styles.deleteButtonText}>
-                {isDeleting ? '삭제 중...' : '삭제'}
-              </Text>
-            </TouchableOpacity>
+            />
           </View>
         )}
       </View>
 
-      {/* 본문 + 댓글 */}
       <ScrollView
         style={styles.scrollView}
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
       >
-        {/* 기도 요청 본문 */}
-        <View style={styles.articleWrapper}>
+        {/* 본문 */}
+        <View style={styles.article}>
           <View style={styles.meta}>
             <View style={styles.metaLeft}>
               <View style={styles.avatarSmall}>
@@ -282,94 +281,80 @@ export function PrayerDetailScreen() {
                   {prayer.writerName.charAt(0).toUpperCase()}
                 </Text>
               </View>
-              <View>
+              <View style={styles.metaText}>
                 <Text style={styles.writerName}>
-                  {isPromoted ? `기도요청자: ${prayer.writerName}` : prayer.writerName}
+                  {isPromoted ? `기도요청자 ${prayer.writerName}` : prayer.writerName}
                 </Text>
                 <Text style={styles.createdDate}>{formatDateFull(prayer.createdDate)}</Text>
               </View>
             </View>
-            <View style={[
-              styles.visibilityBadge,
-              isPromoted
-                ? styles.badgeIntercessory
-                : prayer.visibility === 'PRIVATE'
-                  ? styles.badgePrivate
-                  : styles.badgePastor
-            ]}>
-              <Text style={styles.visibilityText}>
-                {isPromoted
-                  ? '📢 중보기도'
-                  : prayer.visibility === 'PRIVATE'
-                    ? '🔒 나만보기'
-                    : prayer.intercessoryRequested
-                      ? '📢 중보기도 요청'
-                      : '🙏 목사님만 기도'}
-              </Text>
-            </View>
+            <Chip tone={visibility} />
           </View>
 
           <Text style={styles.articleTitle}>{prayer.title}</Text>
-          <View style={styles.divider} />
           <Text style={styles.articleContents}>{prayer.contents}</Text>
-
-          {/* 상태 */}
-          <View style={styles.statusRow}>
-            {(Object.keys(STATUS_LABELS) as PrayerStatus[]).map((status) => (
-              <TouchableOpacity
-                key={status}
-                style={[
-                  styles.statusButton,
-                  prayer.status === status && styles.statusButtonActive,
-                  !canManage && styles.statusButtonDisabled,
-                ]}
-                onPress={() => handleChangeStatus(status)}
-                disabled={!canManage || isUpdatingStatus}
-                activeOpacity={0.8}
-              >
-                <Text style={[
-                  styles.statusButtonText,
-                  prayer.status === status && styles.statusButtonTextActive,
-                ]}>
-                  {STATUS_LABELS[status]}
-                </Text>
-              </TouchableOpacity>
-            ))}
-          </View>
-
-          {prayer.statusChangedAt && prayer.status !== 'PRAYING' && (
-            <Text style={styles.statusChangedText}>
-              {prayer.status === 'ANSWERED' ? '응답' : '종료'} · {formatDateOnly(prayer.statusChangedAt)}
-            </Text>
-          )}
-
-          {/* 중보기도로 공유 (목사 전용) */}
-          {canPromote && (
-            <TouchableOpacity
-              style={[styles.promoteButton, isPromoting && styles.buttonDisabled]}
-              onPress={handlePromote}
-              disabled={isPromoting}
-              activeOpacity={0.8}
-            >
-              <Text style={styles.promoteButtonText}>
-                {isPromoting ? '공유 중...' : '🙏 중보기도로 공유'}
-              </Text>
-            </TouchableOpacity>
-          )}
-
-          {/* 기도했어요 */}
-          <TouchableOpacity
-            style={[styles.prayButton, prayer.hasPrayed && styles.prayButtonActive]}
-            onPress={handleTogglePray}
-            activeOpacity={0.8}
-          >
-            <Text style={[styles.prayButtonText, prayer.hasPrayed && styles.prayButtonTextActive]}>
-              🙏 기도했어요 {prayer.prayerCount}
-            </Text>
-          </TouchableOpacity>
         </View>
 
-        {/* 댓글 섹션 */}
+        {/* 상태 */}
+        <View style={styles.block}>
+          <View style={styles.blockHead}>
+            <Text style={styles.blockLabel}>기도 상태</Text>
+            {prayer.statusChangedAt && prayer.status !== 'PRAYING' && (
+              <Text style={styles.statusDate}>
+                {statusMeta.label} · {formatDateOnly(prayer.statusChangedAt)}
+              </Text>
+            )}
+          </View>
+
+          {canManage ? (
+            <SegmentedButtons
+              options={STATUS_ORDER.map((s) => ({ value: s, label: STATUS_META[s].label }))}
+              value={prayer.status}
+              onChange={handleChangeStatus}
+              disabled={isUpdatingStatus}
+            />
+          ) : (
+            <Chip tone={statusMeta} />
+          )}
+        </View>
+
+        {/* 기도했어요 */}
+        <View style={styles.block}>
+          <Pressable
+            onPress={handlePray}
+            accessibilityRole="button"
+            accessibilityLabel={`기도했어요, 현재 ${prayer.prayerCount}회`}
+            android_ripple={{ color: 'rgba(107,45,107,0.15)' }}
+            style={({ pressed }) => [styles.prayButton, pressed && styles.prayButtonPressed]}
+          >
+            <MaterialCommunityIcons
+              name={prayer.hasPrayed ? 'hand-heart' : 'hand-heart-outline'}
+              size={20}
+              color={Palette.onPrimary}
+            />
+            <Text style={styles.prayLabel}>기도했어요</Text>
+            <View style={styles.prayCountWrap}>
+              <Text style={styles.prayCount}>{prayer.prayerCount}</Text>
+            </View>
+          </Pressable>
+          <Text style={styles.prayHint}>기도할 때마다 눌러주세요. 횟수가 쌓입니다.</Text>
+        </View>
+
+        {/* 중보기도로 공유 */}
+        {canPromote && (
+          <View style={styles.block}>
+            <AppButton
+              label="중보기도로 공유"
+              icon="share-variant-outline"
+              variant="tonal"
+              fullWidth
+              onPress={handlePromote}
+              loading={isPromoting}
+            />
+          </View>
+        )}
+
+        {/* 댓글 */}
         <CommentList
           comments={comments}
           currentLoginID={user?.loginID ?? ''}
@@ -379,7 +364,6 @@ export function PrayerDetailScreen() {
         />
       </ScrollView>
 
-      {/* 댓글 입력창 */}
       <CommentInputBar
         commentText={commentText}
         onChangeText={setCommentText}
@@ -396,106 +380,122 @@ export function PrayerDetailScreen() {
   );
 }
 
-// ─── 스타일 ──────────────────────────────────────────────
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#FFFFFF' },
-  header: {
+  container: { flex: 1, backgroundColor: Palette.background },
+  centerBox: { alignItems: 'center', justifyContent: 'center' },
+
+  appBar: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 20,
-    paddingBottom: 12,
+    paddingHorizontal: Spacing.md,
+    paddingBottom: Spacing.sm,
   },
-  backButtonText: { fontSize: 16, color: '#000000', fontWeight: '500' },
-  headerActions: { flexDirection: 'row', gap: 8 },
-  editButton: {
-    paddingHorizontal: 14,
-    paddingVertical: 7,
-    borderRadius: 8,
-    borderWidth: 1.5,
-    borderColor: '#000000',
+  appBarActions: { flexDirection: 'row', gap: Spacing.xs },
+  iconButton: {
+    width: 44,
+    height: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: Radius.full,
   },
-  editButtonText: { fontSize: 13, color: '#000000', fontWeight: '600' },
-  deleteButton: {
-    paddingHorizontal: 14,
-    paddingVertical: 7,
-    borderRadius: 8,
-    backgroundColor: '#FF3B30',
-  },
-  deleteButtonText: { fontSize: 13, color: '#FFFFFF', fontWeight: '600' },
-  buttonDisabled: { opacity: 0.5 },
+
   scrollView: { flex: 1 },
-  scrollContent: { paddingHorizontal: 20, paddingTop: 8, paddingBottom: 24 },
+  scrollContent: { paddingHorizontal: Spacing.xl, paddingBottom: Spacing.xxl },
 
   // 본문
-  articleWrapper: { gap: 16, marginBottom: 24 },
+  article: { gap: Spacing.md, paddingBottom: Spacing.xl },
   meta: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+    gap: Spacing.sm,
   },
-  metaLeft: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  metaLeft: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, flexShrink: 1 },
+  metaText: { flexShrink: 1 },
   avatarSmall: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: '#000000',
+    width: 38,
+    height: 38,
+    borderRadius: Radius.full,
+    backgroundColor: Palette.primary,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  avatarSmallText: { color: '#FFFFFF', fontSize: 15, fontWeight: 'bold' },
-  writerName: { fontSize: 14, fontWeight: '700', color: '#000000' },
-  createdDate: { fontSize: 11, color: '#999999', marginTop: 1 },
-  visibilityBadge: {
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 12,
+  avatarSmallText: {
+    fontSize: Type.titleSmall.fontSize,
+    fontWeight: '700',
+    color: Palette.onPrimary,
   },
-  badgePrivate: { backgroundColor: '#F0F0F0' },
-  badgePastor: { backgroundColor: '#FFF3E0' },
-  badgeIntercessory: { backgroundColor: '#E8F0FE' },
-  visibilityText: { fontSize: 11, fontWeight: '600', color: '#666666' },
-  articleTitle: { fontSize: 24, fontWeight: 'bold', color: '#000000', lineHeight: 32 },
-  divider: { height: 1, backgroundColor: '#EEEEEE', marginVertical: 4 },
-  articleContents: { fontSize: 16, color: '#333333', lineHeight: 26 },
-
-  // 상태
-  statusRow: { flexDirection: 'row', gap: 8, marginTop: 4, flexWrap: 'wrap' },
-  statusButton: {
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 10,
-    backgroundColor: '#F4F4F4',
+  writerName: {
+    fontSize: Type.titleSmall.fontSize,
+    fontWeight: Type.titleSmall.fontWeight,
+    color: Palette.onSurface,
   },
-  statusButtonActive: { backgroundColor: '#000000' },
-  statusButtonDisabled: { opacity: 0.5 },
-  statusButtonText: { fontSize: 13, fontWeight: '600', color: '#666666' },
-  statusButtonTextActive: { color: '#FFFFFF' },
-  statusChangedText: { fontSize: 12, color: '#888888', marginTop: 2 },
+  createdDate: { fontSize: Type.labelSmall.fontSize, color: Palette.onSurfaceVariant, marginTop: 1 },
+  articleTitle: {
+    fontSize: Type.headlineSmall.fontSize,
+    fontWeight: Type.headlineSmall.fontWeight,
+    lineHeight: Type.headlineSmall.lineHeight,
+    color: Palette.onSurface,
+  },
+  articleContents: {
+    fontSize: Type.bodyLarge.fontSize,
+    lineHeight: Type.bodyLarge.lineHeight,
+    color: Palette.onSurface,
+  },
 
-  // 중보기도 공유
-  promoteButton: {
-    marginTop: 4,
-    paddingVertical: 12,
-    borderRadius: 10,
+  // 블록
+  block: {
+    gap: Spacing.sm,
+    paddingVertical: Spacing.lg,
+    borderTopWidth: 1,
+    borderTopColor: Palette.outlineVariant,
+  },
+  blockHead: {
+    flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#FFF3E0',
+    justifyContent: 'space-between',
+    gap: Spacing.sm,
+    flexWrap: 'wrap',
   },
-  promoteButtonText: { fontSize: 14, fontWeight: '700', color: '#B8752E' },
+  blockLabel: {
+    fontSize: Type.label.fontSize,
+    fontWeight: Type.label.fontWeight,
+    color: Palette.onSurfaceVariant,
+    letterSpacing: 0.4,
+  },
+  statusDate: { fontSize: Type.labelSmall.fontSize, color: Palette.onSurfaceVariant },
 
-  // 기도해요 버튼
+  // 기도했어요
   prayButton: {
-    marginTop: 4,
-    alignSelf: 'flex-start',
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    borderRadius: 20,
-    backgroundColor: '#F0F0F0',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: Spacing.sm,
+    height: 52,
+    borderRadius: Radius.full,
+    backgroundColor: Palette.primary,
+    overflow: 'hidden',
   },
-  prayButtonActive: { backgroundColor: '#000000' },
-  prayButtonText: { fontSize: 13, fontWeight: '600', color: '#666666' },
-  prayButtonTextActive: { color: '#FFFFFF' },
-
-  // 공통
-  centerBox: { flex: 1, alignItems: 'center', justifyContent: 'center' },
+  prayButtonPressed: { opacity: 0.88 },
+  prayLabel: {
+    fontSize: Type.titleSmall.fontSize,
+    fontWeight: '700',
+    color: Palette.onPrimary,
+  },
+  prayCountWrap: {
+    minWidth: 30,
+    height: 28,
+    paddingHorizontal: 9,
+    borderRadius: Radius.full,
+    backgroundColor: 'rgba(255,255,255,0.22)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  prayCount: { fontSize: Type.label.fontSize, fontWeight: '700', color: Palette.onPrimary },
+  prayHint: {
+    fontSize: Type.labelSmall.fontSize,
+    color: Palette.onSurfaceVariant,
+    textAlign: 'center',
+  },
 });

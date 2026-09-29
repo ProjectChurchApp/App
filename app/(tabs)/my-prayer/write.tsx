@@ -1,49 +1,55 @@
 // app/(tabs)/my-prayer/write.tsx
 
+import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
 import {
-    ActivityIndicator,
-    Alert,
-    KeyboardAvoidingView,
-    Platform,
-    ScrollView,
-    StyleSheet,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    useWindowDimensions,
-    View,
+  ActivityIndicator,
+  KeyboardAvoidingView,
+  Platform,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  useWindowDimensions,
+  View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { errorMessage, useFeedback } from '../../../components/ui/Feedback';
+import { AppButton } from '../../../components/ui/primitives';
+import { Palette, Radius, Spacing, Type } from '../../../constants/design';
 import { Connection } from '../../../types/connection';
 import { api } from '../../../utils/api';
 
-// ─── 공개 범위 선택지 ────────────────────────────────────
 type VisibilityChoice = 'PRIVATE' | 'PASTOR_ONLY' | 'INTERCESSORY';
 
 const VISIBILITY_OPTIONS: {
   key: VisibilityChoice;
   label: string;
   desc: string;
+  icon: keyof typeof MaterialCommunityIcons.glyphMap;
   needsPastor: boolean;
 }[] = [
   {
     key: 'PRIVATE',
-    label: '🔒 나만보기',
+    label: '나만보기',
     desc: '나만 볼 수 있어요. 개인적인 기도 기록으로 사용하세요.',
+    icon: 'lock-outline',
     needsPastor: false,
   },
   {
     key: 'PASTOR_ONLY',
-    label: '🙏 목사님만 기도',
+    label: '목사님만 기도',
     desc: '연결된 목사님만 보고 함께 기도해요. 게시판에는 올라가지 않습니다.',
+    icon: 'account-heart-outline',
     needsPastor: true,
   },
   {
     key: 'INTERCESSORY',
-    label: '📢 중보기도',
+    label: '중보기도',
     desc: '목사님이 확인한 뒤 중보기도 게시판에 공유해요. 같은 목사님과 연결된 성도들이 함께 기도합니다.',
+    icon: 'bullhorn-outline',
     needsPastor: true,
   },
 ];
@@ -55,6 +61,7 @@ export default function MyPrayerWriteScreen() {
   const { width } = useWindowDimensions();
   const insets = useSafeAreaInsets();
   const router = useRouter();
+  const { toast, confirm } = useFeedback();
 
   const [title, setTitle] = useState('');
   const [contents, setContents] = useState('');
@@ -66,7 +73,6 @@ export default function MyPrayerWriteScreen() {
   const contentWidth = Math.min(width * 0.95, 680);
   const hasApprovedPastor = connection?.status === 'APPROVED';
 
-  // ── 연결된 목사님 확인 ─────────────────────────────────
   useEffect(() => {
     (async () => {
       try {
@@ -78,25 +84,19 @@ export default function MyPrayerWriteScreen() {
     })();
   }, []);
 
-  const handleSelectChoice = (option: (typeof VISIBILITY_OPTIONS)[number]) => {
+  const handleSelectChoice = async (option: (typeof VISIBILITY_OPTIONS)[number]) => {
     if (option.needsPastor && !hasApprovedPastor) {
-      const msg = '먼저 목사님과 연결해주세요.';
-      if (Platform.OS === 'web') {
-        if (window.confirm(msg + ' 지금 연결 화면으로 이동할까요?')) {
-          router.push('/(tabs)/connect' as any);
-        }
-      } else {
-        Alert.alert('안내', msg, [
-          { text: '취소', style: 'cancel' },
-          { text: '연결하기', onPress: () => router.push('/(tabs)/connect' as any) },
-        ]);
-      }
+      const ok = await confirm({
+        title: '먼저 목사님과 연결해주세요',
+        message: '목사님께 기도를 전하려면 연결이 필요합니다. 지금 연결 화면으로 이동할까요?',
+        confirmLabel: '연결하기',
+      });
+      if (ok) router.push('/(tabs)/connect' as any);
       return;
     }
     setChoice(option.key);
   };
 
-  // ── 수정 모드: 기존 내용 불러오기 ─────────────────────
   useEffect(() => {
     if (!isEditMode) return;
 
@@ -113,13 +113,8 @@ export default function MyPrayerWriteScreen() {
               : 'PASTOR_ONLY'
         );
       } catch (e: any) {
-        const msg = e?.response?.data?.message ?? e?.message ?? '오류가 발생했습니다.';
-        if (Platform.OS === 'web') {
-          window.alert(msg);
-          router.back();
-        } else {
-          Alert.alert('오류', msg, [{ text: '확인', onPress: () => router.back() }]);
-        }
+        toast(errorMessage(e), 'error');
+        router.back();
       } finally {
         setIsFetching(false);
       }
@@ -128,24 +123,16 @@ export default function MyPrayerWriteScreen() {
     fetchExisting();
   }, [id]);
 
-  // ── 유효성 검사 ───────────────────────────────────────
-  const validate = () => {
+  const handleSubmit = async () => {
     if (!title.trim()) {
-      const msg = '제목을 입력해주세요.';
-      Platform.OS === 'web' ? window.alert(msg) : Alert.alert('알림', msg);
-      return false;
+      toast('제목을 입력해주세요.', 'error');
+      return;
     }
     if (!contents.trim()) {
-      const msg = '내용을 입력해주세요.';
-      Platform.OS === 'web' ? window.alert(msg) : Alert.alert('알림', msg);
-      return false;
+      toast('내용을 입력해주세요.', 'error');
+      return;
     }
-    return true;
-  };
 
-  // ── 제출 ──────────────────────────────────────────────
-  const handleSubmit = async () => {
-    if (!validate()) return;
     setIsLoading(true);
 
     const payload = {
@@ -158,13 +145,14 @@ export default function MyPrayerWriteScreen() {
     try {
       if (isEditMode) {
         await api.put(`/prayer/${id}`, payload);
+        toast('수정했습니다.', 'success');
       } else {
         await api.post('/prayer', payload);
+        toast('기도를 등록했습니다.', 'success');
       }
       router.back();
     } catch (e: any) {
-      const msg = e?.response?.data?.message ?? e?.message ?? '오류가 발생했습니다.';
-      Platform.OS === 'web' ? window.alert(msg) : Alert.alert('오류', msg);
+      toast(errorMessage(e), 'error');
     } finally {
       setIsLoading(false);
     }
@@ -173,7 +161,7 @@ export default function MyPrayerWriteScreen() {
   if (isFetching) {
     return (
       <View style={[styles.container, styles.centerBox, { paddingTop: insets.top }]}>
-        <ActivityIndicator size="large" color="#000000" />
+        <ActivityIndicator size="large" color={Palette.primary} />
       </View>
     );
   }
@@ -183,96 +171,111 @@ export default function MyPrayerWriteScreen() {
       style={styles.container}
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
     >
-      {/* 헤더 */}
-      <View style={[styles.header, { paddingTop: insets.top + 16 }]}>
-        <TouchableOpacity onPress={() => router.back()} activeOpacity={0.7}>
-          <Text style={styles.cancelText}>취소</Text>
-        </TouchableOpacity>
-
-        <Text style={styles.headerTitle}>
-          {isEditMode ? '기도 요청 수정' : '기도 요청 작성'}
-        </Text>
-
-        <TouchableOpacity
-          style={[styles.submitButton, isLoading && styles.submitButtonDisabled]}
-          onPress={handleSubmit}
-          disabled={isLoading}
-          activeOpacity={0.8}
+      {/* 상단 바 */}
+      <View style={[styles.appBar, { paddingTop: insets.top + Spacing.sm }]}>
+        <Pressable
+          onPress={() => router.back()}
+          accessibilityRole="button"
+          accessibilityLabel="취소"
+          android_ripple={{ color: 'rgba(107,45,107,0.15)', borderless: true, radius: 22 }}
+          style={styles.iconButton}
         >
-          <Text style={styles.submitButtonText}>
-            {isLoading ? '처리 중...' : isEditMode ? '수정' : '등록'}
-          </Text>
-        </TouchableOpacity>
+          <MaterialCommunityIcons name="close" size={22} color={Palette.onSurfaceVariant} />
+        </Pressable>
+
+        <Text style={styles.appBarTitle}>{isEditMode ? '기도 요청 수정' : '기도 요청 작성'}</Text>
+
+        <AppButton
+          label={isEditMode ? '수정' : '등록'}
+          onPress={handleSubmit}
+          loading={isLoading}
+          style={styles.submitButton}
+        />
       </View>
 
-      {/* 폼 */}
       <ScrollView
         style={styles.scrollView}
         contentContainerStyle={[styles.scrollContent, { alignItems: 'center' }]}
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
       >
-        <View style={[styles.formWrapper, { width: contentWidth }]}>
-
-          {/* 공개 범위 선택 */}
-          <View style={styles.fieldGroup}>
+        <View style={[styles.form, { width: contentWidth }]}>
+          {/* 공개 범위 */}
+          <View style={styles.field}>
             <Text style={styles.label}>공개 범위</Text>
 
-            <View style={styles.visibilityColumn}>
+            <View style={styles.options}>
               {VISIBILITY_OPTIONS.map((option) => {
                 const selected = choice === option.key;
                 const locked = option.needsPastor && !hasApprovedPastor;
 
                 return (
-                  <TouchableOpacity
+                  <Pressable
                     key={option.key}
-                    style={[
-                      styles.visibilityOption,
-                      selected && styles.visibilityOptionActive,
-                      locked && styles.visibilityOptionLocked,
-                    ]}
                     onPress={() => handleSelectChoice(option)}
-                    activeOpacity={0.8}
+                    accessibilityRole="radio"
+                    accessibilityState={{ selected, disabled: locked }}
+                    android_ripple={{ color: 'rgba(107,45,107,0.12)' }}
+                    style={[
+                      styles.option,
+                      selected && styles.optionSelected,
+                      locked && styles.optionLocked,
+                    ]}
                   >
-                    <Text
-                      style={[
-                        styles.visibilityOptionLabel,
-                        selected && styles.visibilityOptionLabelActive,
-                      ]}
-                    >
-                      {option.label}
-                    </Text>
-                    <Text
-                      style={[
-                        styles.visibilityOptionDesc,
-                        selected && styles.visibilityOptionDescActive,
-                      ]}
-                    >
-                      {option.desc}
-                    </Text>
-                  </TouchableOpacity>
+                    <View style={styles.optionHead}>
+                      <MaterialCommunityIcons
+                        name={option.icon}
+                        size={18}
+                        color={selected ? Palette.onPrimaryContainer : Palette.onSurfaceVariant}
+                      />
+                      <Text style={[styles.optionLabel, selected && styles.optionLabelSelected]}>
+                        {option.label}
+                      </Text>
+                      {locked && (
+                        <MaterialCommunityIcons
+                          name="lock-outline"
+                          size={15}
+                          color={Palette.disabled}
+                        />
+                      )}
+                      {selected && (
+                        <MaterialCommunityIcons
+                          name="check-circle"
+                          size={18}
+                          color={Palette.primary}
+                          style={styles.optionCheck}
+                        />
+                      )}
+                    </View>
+                    <Text style={styles.optionDesc}>{option.desc}</Text>
+                  </Pressable>
                 );
               })}
             </View>
 
             {!hasApprovedPastor && (
-              <Text style={styles.visibilityHint}>
-                아직 연결된 목사님이 없어요. 프로필에서 먼저 연결해주세요.
-              </Text>
+              <View style={styles.hint}>
+                <MaterialCommunityIcons
+                  name="information-outline"
+                  size={15}
+                  color={Palette.onWarningContainer}
+                />
+                <Text style={styles.hintText}>
+                  아직 연결된 목사님이 없어요. 프로필에서 먼저 연결해주세요.
+                </Text>
+              </View>
             )}
           </View>
 
-          <View style={styles.divider} />
-
           {/* 제목 */}
-          <View style={styles.fieldGroup}>
+          <View style={styles.field}>
             <Text style={styles.label}>제목</Text>
             <TextInput
               style={styles.titleInput}
               value={title}
               onChangeText={setTitle}
-              placeholder="제목을 입력하세요"
-              placeholderTextColor="#AAAAAA"
+              placeholder="무엇을 위해 기도하시나요?"
+              placeholderTextColor={Palette.disabled}
               maxLength={100}
               returnKeyType="next"
               editable={!isLoading}
@@ -280,17 +283,15 @@ export default function MyPrayerWriteScreen() {
             <Text style={styles.charCount}>{title.length} / 100</Text>
           </View>
 
-          <View style={styles.divider} />
-
           {/* 내용 */}
-          <View style={styles.fieldGroup}>
+          <View style={styles.field}>
             <Text style={styles.label}>내용</Text>
             <TextInput
               style={styles.contentsInput}
               value={contents}
               onChangeText={setContents}
-              placeholder="기도 내용을 입력하세요"
-              placeholderTextColor="#AAAAAA"
+              placeholder="기도 내용을 자유롭게 적어보세요."
+              placeholderTextColor={Palette.disabled}
               multiline
               textAlignVertical="top"
               editable={!isLoading}
@@ -302,95 +303,116 @@ export default function MyPrayerWriteScreen() {
   );
 }
 
-// ─── 스타일 ──────────────────────────────────────────────
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#FFFFFF' },
-  header: {
+  container: { flex: 1, backgroundColor: Palette.background },
+  centerBox: { alignItems: 'center', justifyContent: 'center' },
+
+  appBar: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 20,
-    paddingBottom: 12,
+    gap: Spacing.sm,
+    paddingHorizontal: Spacing.md,
+    paddingBottom: Spacing.md,
     borderBottomWidth: 1,
-    borderBottomColor: '#EEEEEE',
+    borderBottomColor: Palette.outlineVariant,
   },
-  cancelText: { fontSize: 16, color: '#666666', fontWeight: '500' },
-  headerTitle: { fontSize: 17, fontWeight: '700', color: '#000000' },
-  submitButton: {
-    backgroundColor: '#000000',
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 8,
+  iconButton: {
+    width: 44,
+    height: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: Radius.full,
   },
-  submitButtonDisabled: { opacity: 0.4 },
-  submitButtonText: { color: '#FFFFFF', fontSize: 14, fontWeight: '600' },
+  appBarTitle: {
+    flex: 1,
+    textAlign: 'center',
+    fontSize: Type.titleMedium.fontSize,
+    fontWeight: Type.titleMedium.fontWeight,
+    color: Palette.onSurface,
+  },
+  submitButton: { paddingHorizontal: Spacing.lg, minHeight: 40 },
+
   scrollView: { flex: 1 },
   scrollContent: {
     flexGrow: 1,
-    paddingHorizontal: 20,
-    paddingTop: 20,
-    paddingBottom: 40,
+    paddingHorizontal: Spacing.xl,
+    paddingTop: Spacing.xl,
+    paddingBottom: Spacing.xxxl,
   },
-  formWrapper: { gap: 16 },
-  fieldGroup: { gap: 8 },
+  form: { gap: Spacing.xxl },
+  field: { gap: Spacing.sm },
   label: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: '#999999',
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
+    fontSize: Type.label.fontSize,
+    fontWeight: Type.label.fontWeight,
+    color: Palette.onSurfaceVariant,
+    letterSpacing: 0.4,
   },
 
   // 공개 범위
-  visibilityColumn: { gap: 8 },
-  visibilityOption: {
-    paddingVertical: 12,
-    paddingHorizontal: 14,
-    borderRadius: 10,
-    backgroundColor: '#F4F4F4',
-    borderWidth: 2,
-    borderColor: 'transparent',
-    gap: 4,
+  options: { gap: Spacing.sm },
+  option: {
+    paddingVertical: Spacing.md,
+    paddingHorizontal: Spacing.lg,
+    borderRadius: Radius.md,
+    borderWidth: 1.5,
+    borderColor: Palette.outline,
+    backgroundColor: Palette.surface,
+    gap: Spacing.xs,
+    overflow: 'hidden',
   },
-  visibilityOptionActive: {
-    backgroundColor: '#000000',
-    borderColor: '#000000',
+  optionSelected: {
+    borderColor: Palette.primary,
+    backgroundColor: Palette.primaryContainer,
   },
-  visibilityOptionLocked: { opacity: 0.55 },
-  visibilityOptionLabel: {
-    fontSize: 15,
+  optionLocked: { opacity: 0.6 },
+  optionHead: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  optionLabel: {
+    fontSize: Type.titleSmall.fontSize,
     fontWeight: '700',
-    color: '#333333',
+    color: Palette.onSurface,
   },
-  visibilityOptionLabelActive: { color: '#FFFFFF' },
-  visibilityOptionDesc: {
-    fontSize: 12,
-    color: '#888888',
+  optionLabelSelected: { color: Palette.onPrimaryContainer },
+  optionCheck: { marginLeft: 'auto' },
+  optionDesc: {
+    fontSize: Type.labelSmall.fontSize,
     lineHeight: 18,
-  },
-  visibilityOptionDescActive: { color: '#CCCCCC' },
-  visibilityHint: {
-    fontSize: 12,
-    color: '#B8752E',
-    lineHeight: 18,
+    color: Palette.onSurfaceVariant,
   },
 
-  divider: { height: 1, backgroundColor: '#EEEEEE' },
+  hint: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 6,
+    padding: Spacing.md,
+    borderRadius: Radius.sm,
+    backgroundColor: Palette.warningContainer,
+  },
+  hintText: {
+    flex: 1,
+    fontSize: Type.labelSmall.fontSize,
+    lineHeight: 18,
+    color: Palette.onWarningContainer,
+  },
+
   titleInput: {
-    fontSize: 20,
+    fontSize: Type.titleLarge.fontSize,
     fontWeight: '600',
-    color: '#000000',
-    paddingVertical: 8,
+    color: Palette.onSurface,
+    paddingVertical: Spacing.sm,
     borderBottomWidth: 1.5,
-    borderBottomColor: '#EEEEEE',
+    borderBottomColor: Palette.outlineVariant,
   },
-  charCount: { fontSize: 12, color: '#BBBBBB', textAlign: 'right' },
+  charCount: {
+    fontSize: Type.labelSmall.fontSize,
+    color: Palette.disabled,
+    textAlign: 'right',
+  },
   contentsInput: {
-    fontSize: 16,
-    color: '#333333',
-    lineHeight: 26,
-    minHeight: 300,
-    paddingTop: 4,
+    fontSize: Type.bodyLarge.fontSize,
+    color: Palette.onSurface,
+    lineHeight: Type.bodyLarge.lineHeight,
+    minHeight: 260,
+    paddingTop: Spacing.xs,
   },
-  centerBox: { flex: 1, alignItems: 'center', justifyContent: 'center' },
 });

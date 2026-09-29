@@ -1,33 +1,40 @@
+import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import { useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
 import {
-  ActivityIndicator,
-  Alert,
+  Image,
   KeyboardAvoidingView,
   Platform,
+  Pressable,
   ScrollView,
   StyleSheet,
   Text,
   TextInput,
-  TouchableOpacity,
   useWindowDimensions,
   View,
 } from 'react-native';
+import { errorMessage, useFeedback } from '../../components/ui/Feedback';
+import { AppButton } from '../../components/ui/primitives';
+import { Palette, Radius, Spacing, Type } from '../../constants/design';
 import { useAuth } from '../../contexts/AuthContext';
-import { clearRememberedLoginID, getRememberedLoginID, saveRememberedLoginID } from '../../utils/api';
+import {
+  clearRememberedLoginID,
+  getRememberedLoginID,
+  saveRememberedLoginID,
+} from '../../utils/api';
 
 export default function LoginScreen() {
   const router = useRouter();
   const { login, isLoading } = useAuth();
-  const { width, height } = useWindowDimensions();
+  const { width } = useWindowDimensions();
+  const { toast } = useFeedback();
 
   const [loginID, setLoginID] = useState('');
   const [password, setPassword] = useState('');
   const [rememberID, setRememberID] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
 
-  // 반응형: 최대 너비 제한 (태블릿 대응)
-  const formWidth = Math.min(width * 0.9, 440);
+  const formWidth = Math.min(width * 0.9, 420);
 
   useEffect(() => {
     (async () => {
@@ -41,11 +48,11 @@ export default function LoginScreen() {
 
   const handleLogin = async () => {
     if (!loginID.trim()) {
-      Alert.alert('오류', '아이디를 입력해주세요.');
+      toast('아이디를 입력해주세요.', 'error');
       return;
     }
     if (!password.trim()) {
-      Alert.alert('오류', '비밀번호를 입력해주세요.');
+      toast('비밀번호를 입력해주세요.', 'error');
       return;
     }
     try {
@@ -56,90 +63,118 @@ export default function LoginScreen() {
         await clearRememberedLoginID();
       }
     } catch (error: any) {
-      Alert.alert('로그인 실패', error.message || '아이디 또는 비밀번호가 올바르지 않습니다.');
+      toast(errorMessage(error, '아이디 또는 비밀번호가 올바르지 않습니다.'), 'error');
     }
-  };
-
-  const goToSignup = () => {
-    router.push('/auth/signup');
   };
 
   return (
     <KeyboardAvoidingView
       style={styles.container}
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+    >
       <ScrollView
-        contentContainerStyle={[styles.scrollContent, { minHeight: height }]}
+        contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
-        keyboardShouldPersistTaps="handled">
-        {/* 화면 중앙 정렬 래퍼 */}
-        <View style={styles.centerWrapper}>
-          <View style={[styles.card, { width: formWidth }]}>
-            <Text style={styles.title}>로그인</Text>
-            <Text style={styles.subtitle}>계정에 로그인하세요</Text>
+        keyboardShouldPersistTaps="handled"
+      >
+        <View style={[styles.card, { width: formWidth }]}>
+          <Image
+            source={require('../../assets/images/logo_fix.png')}
+            style={styles.logo}
+            resizeMode="contain"
+            accessibilityLabel="하트기도365"
+          />
 
-            <View style={styles.form}>
+          <Text style={styles.title}>로그인</Text>
+          <Text style={styles.subtitle}>계정에 로그인하세요</Text>
+
+          <View style={styles.form}>
+            <View style={styles.inputRow}>
+              <MaterialCommunityIcons
+                name="account-outline"
+                size={20}
+                color={Palette.onSurfaceVariant}
+              />
               <TextInput
                 style={styles.input}
                 placeholder="아이디"
-                placeholderTextColor="#999"
+                placeholderTextColor={Palette.disabled}
                 value={loginID}
                 onChangeText={setLoginID}
                 autoCapitalize="none"
+                autoCorrect={false}
                 editable={!isLoading}
               />
+            </View>
 
-              <View style={styles.passwordRow}>
-                <TextInput
-                  style={styles.passwordInput}
-                  placeholder="비밀번호"
-                  placeholderTextColor="#999"
-                  value={password}
-                  onChangeText={setPassword}
-                  secureTextEntry={!showPassword}
-                  editable={!isLoading}
-                />
-                <TouchableOpacity
-                  style={styles.passwordToggle}
-                  onPress={() => setShowPassword((prev) => !prev)}
-                  disabled={isLoading}
-                  activeOpacity={0.7}
-                  accessibilityRole="button"
-                  accessibilityLabel={showPassword ? '비밀번호 숨기기' : '비밀번호 표시'}>
-                  <Text style={styles.passwordToggleText}>
-                    {showPassword ? '숨김' : '표시'}
-                  </Text>
-                </TouchableOpacity>
-              </View>
-
-              <TouchableOpacity
-                style={styles.rememberRow}
-                onPress={() => setRememberID((prev) => !prev)}
+            <View style={styles.inputRow}>
+              <MaterialCommunityIcons
+                name="lock-outline"
+                size={20}
+                color={Palette.onSurfaceVariant}
+              />
+              <TextInput
+                style={styles.input}
+                placeholder="비밀번호"
+                placeholderTextColor={Palette.disabled}
+                value={password}
+                onChangeText={setPassword}
+                secureTextEntry={!showPassword}
+                autoCapitalize="none"
+                editable={!isLoading}
+                onSubmitEditing={handleLogin}
+                returnKeyType="go"
+              />
+              <Pressable
+                onPress={() => setShowPassword((prev) => !prev)}
                 disabled={isLoading}
-                activeOpacity={0.7}>
-                <View style={[styles.checkbox, rememberID && styles.checkboxChecked]}>
-                  {rememberID && <Text style={styles.checkboxMark}>✓</Text>}
-                </View>
-                <Text style={styles.rememberText}>아이디 저장</Text>
-              </TouchableOpacity>
+                hitSlop={8}
+                accessibilityRole="button"
+                accessibilityLabel={showPassword ? '비밀번호 숨기기' : '비밀번호 표시'}
+                style={styles.eyeButton}
+              >
+                <MaterialCommunityIcons
+                  name={showPassword ? 'eye-off-outline' : 'eye-outline'}
+                  size={20}
+                  color={Palette.onSurfaceVariant}
+                />
+              </Pressable>
+            </View>
 
-              <TouchableOpacity
-                style={[styles.loginButton, isLoading && styles.buttonDisabled]}
-                onPress={handleLogin}
-                disabled={isLoading}>
-                {isLoading ? (
-                  <ActivityIndicator color="#FFFFFF" />
-                ) : (
-                  <Text style={styles.loginButtonText}>로그인</Text>
+            <Pressable
+              style={styles.rememberRow}
+              onPress={() => setRememberID((prev) => !prev)}
+              disabled={isLoading}
+              accessibilityRole="checkbox"
+              accessibilityState={{ checked: rememberID }}
+              hitSlop={6}
+            >
+              <View style={[styles.checkbox, rememberID && styles.checkboxChecked]}>
+                {rememberID && (
+                  <MaterialCommunityIcons name="check" size={14} color={Palette.onPrimary} />
                 )}
-              </TouchableOpacity>
-
-              <View style={styles.linkRow}>
-                <Text style={styles.linkText}>계정이 없으신가요? </Text>
-                <TouchableOpacity onPress={goToSignup} disabled={isLoading}>
-                  <Text style={styles.linkBold}>회원가입</Text>
-                </TouchableOpacity>
               </View>
+              <Text style={styles.rememberText}>아이디 저장</Text>
+            </Pressable>
+
+            <AppButton
+              label="로그인"
+              onPress={handleLogin}
+              loading={isLoading}
+              fullWidth
+              style={styles.loginButton}
+            />
+
+            <View style={styles.linkRow}>
+              <Text style={styles.linkText}>계정이 없으신가요? </Text>
+              <Pressable
+                onPress={() => router.push('/auth/signup')}
+                disabled={isLoading}
+                hitSlop={8}
+                accessibilityRole="link"
+              >
+                <Text style={styles.linkBold}>회원가입</Text>
+              </Pressable>
             </View>
           </View>
         </View>
@@ -149,124 +184,91 @@ export default function LoginScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#FFFFFF',
-  },
+  container: { flex: 1, backgroundColor: Palette.background },
   scrollContent: {
     flexGrow: 1,
     justifyContent: 'center',
     alignItems: 'center',
+    paddingHorizontal: Spacing.xl,
+    paddingVertical: Spacing.xxxl,
   },
-  centerWrapper: {
-    width: '100%',
-    alignItems: 'center',
-    paddingVertical: 48,
-    paddingHorizontal: 20,
+  card: { alignItems: 'stretch' },
+
+  logo: {
+    width: 150,
+    height: 165,
+    alignSelf: 'center',
+    marginBottom: Spacing.xl,
   },
-  card: {
-  },
+
   title: {
-    fontSize: 32,
-    fontWeight: 'bold',
-    color: '#000000',
-    marginBottom: 8,
+    fontSize: Type.headlineSmall.fontSize,
+    fontWeight: Type.headlineSmall.fontWeight,
+    color: Palette.onSurface,
   },
   subtitle: {
-    fontSize: 16,
-    color: '#666666',
-    marginBottom: 40,
+    fontSize: Type.bodyMedium.fontSize,
+    color: Palette.onSurfaceVariant,
+    marginTop: Spacing.xs,
+    marginBottom: Spacing.xxl,
   },
-  form: {
-    gap: 16,
-  },
-  input: {
-    borderWidth: 1,
-    borderColor: '#DDDDDD',
-    borderRadius: 8,
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-    fontSize: 16,
-    backgroundColor: '#F9F9F9',
-  },
-  passwordRow: {
+
+  form: { gap: Spacing.md },
+  inputRow: {
     flexDirection: 'row',
     alignItems: 'center',
+    gap: Spacing.sm,
+    height: 54,
+    paddingHorizontal: Spacing.lg,
+    borderRadius: Radius.md,
     borderWidth: 1,
-    borderColor: '#DDDDDD',
-    borderRadius: 8,
-    backgroundColor: '#F9F9F9',
-    paddingRight: 8,
+    borderColor: Palette.outline,
+    backgroundColor: Palette.surfaceVariant,
   },
-  passwordInput: {
+  input: {
     flex: 1,
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-    fontSize: 16,
+    fontSize: Type.bodyLarge.fontSize,
+    color: Palette.onSurface,
+    paddingVertical: 0,
   },
-  passwordToggle: {
-    paddingHorizontal: 10,
-    paddingVertical: 8,
+  eyeButton: {
+    width: 32,
+    height: 32,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  passwordToggleText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#666666',
-  },
+
   rememberRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    gap: Spacing.sm,
+    paddingVertical: Spacing.xs,
+    alignSelf: 'flex-start',
   },
   checkbox: {
-    width: 20,
-    height: 20,
-    borderRadius: 4,
+    width: 22,
+    height: 22,
+    borderRadius: Radius.xs,
     borderWidth: 1.5,
-    borderColor: '#BBBBBB',
+    borderColor: Palette.outline,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  checkboxChecked: {
-    backgroundColor: '#000000',
-    borderColor: '#000000',
-  },
-  checkboxMark: {
-    color: '#FFFFFF',
-    fontSize: 13,
-    fontWeight: '700',
-  },
-  rememberText: {
-    fontSize: 14,
-    color: '#666666',
-  },
-  loginButton: {
-    backgroundColor: '#000000',
-    borderRadius: 8,
-    paddingVertical: 16,
-    alignItems: 'center',
-    marginTop: 8,
-  },
-  buttonDisabled: {
-    backgroundColor: '#999999',
-  },
-  loginButtonText: {
-    color: '#FFFFFF',
-    fontSize: 16,
-    fontWeight: '600',
-  },
+  checkboxChecked: { backgroundColor: Palette.primary, borderColor: Palette.primary },
+  rememberText: { fontSize: Type.bodyMedium.fontSize, color: Palette.onSurfaceVariant },
+
+  loginButton: { marginTop: Spacing.xs },
+
   linkRow: {
     flexDirection: 'row',
     justifyContent: 'center',
-    marginTop: 8,
+    alignItems: 'center',
+    marginTop: Spacing.sm,
   },
-  linkText: {
-    fontSize: 14,
-    color: '#666666',
-  },
+  linkText: { fontSize: Type.bodyMedium.fontSize, color: Palette.onSurfaceVariant },
   linkBold: {
-    fontSize: 14,
-    color: '#000000',
-    fontWeight: '600',
+    fontSize: Type.bodyMedium.fontSize,
+    color: Palette.primary,
+    fontWeight: '700',
   },
 });

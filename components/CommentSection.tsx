@@ -1,4 +1,6 @@
-import { StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
+import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Palette, Radius, Spacing, Type } from '../constants/design';
 import { CommentItem } from '../types/comment';
 import { CommentCard } from './CommentCard';
 
@@ -10,16 +12,32 @@ interface CommentListProps {
   onDelete: (id: number) => void;
 }
 
-export function CommentList({ comments, currentLoginID, isPastor, onEdit, onDelete }: CommentListProps) {
+export function CommentList({
+  comments,
+  currentLoginID,
+  isPastor,
+  onEdit,
+  onDelete,
+}: CommentListProps) {
   return (
-    <View style={styles.commentSection}>
-      <Text style={styles.commentSectionTitle}>
-        댓글 {comments.length > 0 ? `${comments.length}` : ''}
-      </Text>
+    <View style={styles.section}>
+      <View style={styles.sectionHead}>
+        <MaterialCommunityIcons
+          name="comment-text-outline"
+          size={17}
+          color={Palette.onSurfaceVariant}
+        />
+        <Text style={styles.sectionTitle}>댓글</Text>
+        {comments.length > 0 && (
+          <View style={styles.countPill}>
+            <Text style={styles.countText}>{comments.length}</Text>
+          </View>
+        )}
+      </View>
 
       {comments.length === 0 ? (
-        <View style={styles.commentEmpty}>
-          <Text style={styles.commentEmptyText}>첫 댓글을 작성해보세요</Text>
+        <View style={styles.empty}>
+          <Text style={styles.emptyText}>첫 댓글을 남겨보세요</Text>
         </View>
       ) : (
         comments.map((comment) => (
@@ -56,95 +74,140 @@ export function CommentInputBar({
   onCancelEdit,
   bottomPadding,
 }: CommentInputBarProps) {
+  const canSubmit = commentText.trim().length > 0 && !isSubmitting;
+
   return (
-    <View style={[styles.commentInputWrapper, { paddingBottom: bottomPadding }]}>
+    <View style={[styles.inputWrapper, { paddingBottom: bottomPadding + Spacing.sm }]}>
       {editingComment && (
         <View style={styles.editingBanner}>
-          <Text style={styles.editingBannerText}>댓글 수정 중</Text>
-          <TouchableOpacity onPress={onCancelEdit}>
-            <Text style={styles.editingCancelText}>취소</Text>
-          </TouchableOpacity>
+          <MaterialCommunityIcons name="pencil-outline" size={14} color={Palette.onPrimaryContainer} />
+          <Text style={styles.editingText}>댓글 수정 중</Text>
+          <Pressable onPress={onCancelEdit} hitSlop={10} accessibilityRole="button">
+            <Text style={styles.editingCancel}>취소</Text>
+          </Pressable>
         </View>
       )}
-      <View style={styles.commentInputRow}>
+
+      <View style={styles.inputRow}>
         <TextInput
-          style={styles.commentInput}
+          style={styles.input}
           value={commentText}
           onChangeText={onChangeText}
           placeholder="댓글을 입력하세요"
-          placeholderTextColor="#AAAAAA"
+          placeholderTextColor={Palette.disabled}
           multiline
           maxLength={500}
         />
-        <TouchableOpacity
-          style={[
-            styles.commentSubmitButton,
-            (!commentText.trim() || isSubmitting) && styles.commentSubmitButtonDisabled,
-          ]}
+        <Pressable
           onPress={onSubmit}
-          disabled={!commentText.trim() || isSubmitting}
-          activeOpacity={0.8}>
-          <Text style={styles.commentSubmitButtonText}>
-            {isSubmitting ? '...' : editingComment ? '수정' : '등록'}
-          </Text>
-        </TouchableOpacity>
+          disabled={!canSubmit}
+          accessibilityRole="button"
+          accessibilityLabel={editingComment ? '댓글 수정' : '댓글 등록'}
+          accessibilityState={{ disabled: !canSubmit }}
+          android_ripple={{ color: 'rgba(255,255,255,0.24)', borderless: true, radius: 22 }}
+          style={({ pressed }) => [
+            styles.submit,
+            !canSubmit && styles.submitDisabled,
+            pressed && canSubmit && { opacity: 0.85 },
+          ]}
+        >
+          <MaterialCommunityIcons
+            name={editingComment ? 'check' : 'send'}
+            size={20}
+            color={Palette.onPrimary}
+          />
+        </Pressable>
       </View>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  commentSection: { gap: 12 },
-  commentSectionTitle: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: '#000000',
-    marginBottom: 4,
-  },
-  commentEmpty: {
-    paddingVertical: 24,
-    alignItems: 'center',
-    backgroundColor: '#F8F8F8',
-    borderRadius: 12,
-  },
-  commentEmptyText: { fontSize: 14, color: '#999999' },
-  commentInputWrapper: {
+  section: {
+    gap: Spacing.sm,
+    paddingTop: Spacing.lg,
     borderTopWidth: 1,
-    borderTopColor: '#EEEEEE',
-    paddingHorizontal: 16,
-    paddingTop: 10,
-    backgroundColor: '#FFFFFF',
+    borderTopColor: Palette.outlineVariant,
+  },
+  sectionHead: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginBottom: Spacing.xs,
+  },
+  sectionTitle: {
+    fontSize: Type.titleSmall.fontSize,
+    fontWeight: '700',
+    color: Palette.onSurface,
+  },
+  countPill: {
+    minWidth: 22,
+    paddingHorizontal: 7,
+    paddingVertical: 1,
+    borderRadius: Radius.full,
+    backgroundColor: Palette.primaryContainer,
+    alignItems: 'center',
+  },
+  countText: {
+    fontSize: Type.labelSmall.fontSize,
+    fontWeight: '700',
+    color: Palette.onPrimaryContainer,
+  },
+  empty: {
+    paddingVertical: Spacing.xxl,
+    alignItems: 'center',
+    backgroundColor: Palette.surfaceVariant,
+    borderRadius: Radius.md,
+  },
+  emptyText: { fontSize: Type.bodyMedium.fontSize, color: Palette.onSurfaceVariant },
+
+  inputWrapper: {
+    borderTopWidth: 1,
+    borderTopColor: Palette.outlineVariant,
+    paddingHorizontal: Spacing.lg,
+    paddingTop: Spacing.md,
+    backgroundColor: Palette.surface,
   },
   editingBanner: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 8,
-    paddingHorizontal: 4,
+    gap: 6,
+    marginBottom: Spacing.sm,
+    paddingHorizontal: Spacing.md,
+    paddingVertical: 6,
+    borderRadius: Radius.sm,
+    backgroundColor: Palette.primaryContainer,
   },
-  editingBannerText: { fontSize: 12, color: '#666666' },
-  editingCancelText: { fontSize: 12, color: '#FF3B30', fontWeight: '600' },
-  commentInputRow: {
-    flexDirection: 'row',
-    alignItems: 'flex-end',
-    gap: 8,
-  },
-  commentInput: {
+  editingText: {
     flex: 1,
-    backgroundColor: '#F4F4F4',
-    borderRadius: 20,
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    fontSize: 14,
-    color: '#000000',
-    maxHeight: 100,
+    fontSize: Type.labelSmall.fontSize,
+    color: Palette.onPrimaryContainer,
+    fontWeight: '600',
   },
-  commentSubmitButton: {
-    backgroundColor: '#000000',
-    borderRadius: 20,
-    paddingHorizontal: 16,
-    paddingVertical: 10,
+  editingCancel: {
+    fontSize: Type.labelSmall.fontSize,
+    fontWeight: '700',
+    color: Palette.danger,
   },
-  commentSubmitButtonDisabled: { opacity: 0.3 },
-  commentSubmitButtonText: { color: '#FFFFFF', fontSize: 14, fontWeight: '600' },
+  inputRow: { flexDirection: 'row', alignItems: 'flex-end', gap: Spacing.sm },
+  input: {
+    flex: 1,
+    minHeight: 44,
+    maxHeight: 110,
+    backgroundColor: Palette.surfaceVariant,
+    borderRadius: Radius.xl,
+    paddingHorizontal: Spacing.lg,
+    paddingVertical: Spacing.md,
+    fontSize: Type.bodyMedium.fontSize,
+    color: Palette.onSurface,
+  },
+  submit: {
+    width: 44,
+    height: 44,
+    borderRadius: Radius.full,
+    backgroundColor: Palette.primary,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  submitDisabled: { backgroundColor: Palette.disabled },
 });
