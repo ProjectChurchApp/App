@@ -1,11 +1,19 @@
 // app/(tabs)/_layout.tsx
 
-import { IconSymbol } from '@/components/ui/icon-symbol';
-import FontAwesome5 from '@expo/vector-icons/FontAwesome5';
+import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import { Tabs } from 'expo-router';
 import { Platform } from 'react-native';
 import { Palette } from '../../constants/design';
 import { useAuth } from '../../contexts/AuthContext';
+
+type IconName = keyof typeof MaterialCommunityIcons.glyphMap;
+
+/** 탭 아이콘. 선택된 탭만 채워진 모양으로 바뀌어 지금 어디인지 분명해진다. */
+function tabIcon(outline: IconName, filled: IconName) {
+  return ({ color, focused }: { color: string; focused: boolean }) => (
+    <MaterialCommunityIcons name={focused ? filled : outline} size={25} color={color} />
+  );
+}
 
 export default function TabLayout() {
   const { user } = useAuth();
@@ -19,10 +27,15 @@ export default function TabLayout() {
         tabBarActiveTintColor: Palette.primary,
         tabBarInactiveTintColor: Palette.onSurfaceVariant,
         headerShown: false,
-        tabBarLabelStyle: { fontSize: 11, fontWeight: '600' },
+        tabBarLabelStyle: { fontSize: 11, fontWeight: '600', marginTop: 1 },
         tabBarStyle: Platform.select({
           ios: { position: 'absolute', borderTopColor: Palette.outlineVariant },
-          default: { borderTopColor: Palette.outlineVariant, height: 62, paddingTop: 6, paddingBottom: 8 },
+          default: {
+            borderTopColor: Palette.outlineVariant,
+            height: 64,
+            paddingTop: 7,
+            paddingBottom: 9,
+          },
         }),
       }}
     >
@@ -30,7 +43,7 @@ export default function TabLayout() {
         name="board"
         options={{
           title: '게시판',
-          tabBarIcon: ({ color }) => <IconSymbol name="list.bullet" color={color} size={28} />,
+          tabBarIcon: tabIcon('bullhorn-outline', 'bullhorn'),
         }}
       />
 
@@ -39,7 +52,7 @@ export default function TabLayout() {
         options={{
           href: isPastor ? null : undefined,
           title: '나의기도',
-          tabBarIcon: ({ color }) => <FontAwesome5 name="praying-hands" size={24} color={color} />,
+          tabBarIcon: tabIcon('hands-pray', 'hands-pray'),
         }}
       />
 
@@ -48,7 +61,7 @@ export default function TabLayout() {
         options={{
           href: isPastor ? undefined : null,
           title: '성도기도요청',
-          tabBarIcon: ({ color }) => <FontAwesome5 name="inbox" size={24} color={color} />,
+          tabBarIcon: tabIcon('inbox-arrow-down-outline', 'inbox-arrow-down'),
         }}
       />
 
@@ -56,7 +69,7 @@ export default function TabLayout() {
         name="intercessory"
         options={{
           title: '중보기도',
-          tabBarIcon: ({ color }) => <FontAwesome5 name="hands-helping" size={24} color={color} />,
+          tabBarIcon: tabIcon('hand-heart-outline', 'hand-heart'),
         }}
       />
 
@@ -65,7 +78,7 @@ export default function TabLayout() {
         options={{
           href: isMember ? undefined : null,
           title: '목사님과 연결',
-          tabBarIcon: ({ color }) => <FontAwesome5 name="link" size={24} color={color} />,
+          tabBarIcon: tabIcon('link-variant', 'link-variant'),
         }}
       />
 
@@ -74,7 +87,7 @@ export default function TabLayout() {
         options={{
           href: isPastor ? undefined : null,
           title: '성도관리',
-          tabBarIcon: ({ color }) => <FontAwesome5 name="users-cog" size={24} color={color} />,
+          tabBarIcon: tabIcon('account-group-outline', 'account-group'),
         }}
       />
 
@@ -83,16 +96,11 @@ export default function TabLayout() {
         options={{
           href: isAdmin ? undefined : null,
           title: '승인 관리',
-          tabBarIcon: ({ color }) => <FontAwesome5 name="user-check" size={24} color={color} />,
+          tabBarIcon: tabIcon('account-check-outline', 'account-check'),
         }}
       />
 
-      <Tabs.Screen
-        name="profile"
-        options={{
-          href: null,
-        }}
-      />
+      <Tabs.Screen name="profile" options={{ href: null }} />
     </Tabs>
   );
 }

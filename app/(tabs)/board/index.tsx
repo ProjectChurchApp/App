@@ -107,7 +107,7 @@ export default function BoardScreen() {
       else setIsLoading(true);
 
       try {
-        const res = await api.get<BoardItem[]>('/board');
+        const res = await api.get<BoardItem[]>('/board/latest');
         setAllBoards(res.data);
       } catch (e: any) {
         toast(errorMessage(e), 'error');

@@ -8,7 +8,6 @@ import {
   Animated,
   Platform,
   Pressable,
-  ScrollView,
   StyleProp,
   StyleSheet,
   Text,
@@ -264,12 +263,8 @@ export function FilterTabs<T extends string>({
   onChange: (value: T) => void;
 }) {
   return (
-    <ScrollView
-      horizontal
-      showsHorizontalScrollIndicator={false}
-      contentContainerStyle={styles.filterScroll}
-    >
-      <View style={styles.track}>
+    <View style={styles.filterScroll}>
+      <View style={[styles.track, styles.filterTrack]}>
         {options.map((opt) => {
           const selected = opt.value === value;
           return (
@@ -290,7 +285,7 @@ export function FilterTabs<T extends string>({
           );
         })}
       </View>
-    </ScrollView>
+    </View>
   );
 }
 
@@ -550,6 +545,7 @@ const styles = StyleSheet.create({
   segmentTextSelected: { color: Palette.primary, fontWeight: '700' },
 
   filterScroll: { paddingHorizontal: Spacing.xl, paddingBottom: Spacing.md },
+  filterTrack: { alignSelf: 'flex-start' },
   filterSegment: { flex: 0, minWidth: 64, paddingHorizontal: Spacing.lg },
 
   empty: {
