@@ -10,9 +10,11 @@ type IconName = keyof typeof MaterialCommunityIcons.glyphMap;
 
 /** 탭 아이콘. 선택된 탭만 채워진 모양으로 바뀌어 지금 어디인지 분명해진다. */
 function tabIcon(outline: IconName, filled: IconName) {
-  return ({ color, focused }: { color: string; focused: boolean }) => (
+  const TabBarIcon = ({ color, focused }: { color: string; focused: boolean }) => (
     <MaterialCommunityIcons name={focused ? filled : outline} size={25} color={color} />
   );
+  TabBarIcon.displayName = `TabBarIcon(${outline})`;
+  return TabBarIcon;
 }
 
 export default function TabLayout() {
