@@ -1,7 +1,6 @@
 // app/(tabs)/intercessory/index.tsx
 
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
-import { useBottomTabBarHeight } from '@react-navigation/bottom-tabs';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { useCallback, useMemo, useState } from 'react';
 import { FlatList, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
@@ -14,6 +13,7 @@ import {
   ScreenHeader,
   SkeletonList,
   SurfaceCard,
+  useTabBarOverlap,
 } from '../../../components/ui/primitives';
 import { Palette, Radius, Spacing, Type } from '../../../constants/design';
 import { STATUS_META } from '../../../constants/prayerMeta';
@@ -82,7 +82,7 @@ function PrayerCard({
 // ─── 메인 화면 ───────────────────────────────────────────
 export default function IntercessoryScreen() {
   const insets = useSafeAreaInsets();
-  const tabBarHeight = useBottomTabBarHeight();
+  const tabBarOverlap = useTabBarOverlap();
   const router = useRouter();
   const { user } = useAuth();
   const { toast } = useFeedback();
@@ -198,7 +198,7 @@ export default function IntercessoryScreen() {
               onPray={() => handlePray(item.id)}
             />
           )}
-          contentContainerStyle={[styles.listContent, { paddingBottom: tabBarHeight + Spacing.xxl }]}
+          contentContainerStyle={[styles.listContent, { paddingBottom: tabBarOverlap + Spacing.xxl }]}
           ItemSeparatorComponent={() => <View style={styles.separator} />}
           onRefresh={() => fetchPrayers(true)}
           refreshing={isRefreshing}

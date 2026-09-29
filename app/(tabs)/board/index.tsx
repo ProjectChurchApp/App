@@ -1,7 +1,6 @@
 // app/(tabs)/board/index.tsx
 
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
-import { useBottomTabBarHeight } from '@react-navigation/bottom-tabs';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { useCallback, useMemo, useState } from 'react';
 import { FlatList, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
@@ -10,11 +9,12 @@ import { errorMessage, useFeedback } from '../../../components/ui/Feedback';
 import {
   Avatar,
   EmptyState,
-  FilterTabs,
   FAB,
+  FilterTabs,
   ScreenHeader,
   SkeletonList,
   SurfaceCard,
+  useTabBarOverlap,
 } from '../../../components/ui/primitives';
 import { Palette, Radius, Spacing, Type } from '../../../constants/design';
 import { useAuth } from '../../../contexts/AuthContext';
@@ -76,7 +76,7 @@ function BoardCard({ item, onPress }: { item: BoardItem; onPress: () => void }) 
 // ─── 메인 화면 ───────────────────────────────────────────
 export default function BoardScreen() {
   const insets = useSafeAreaInsets();
-  const tabBarHeight = useBottomTabBarHeight();
+  const tabBarOverlap = useTabBarOverlap();
   const router = useRouter();
   const { user } = useAuth();
   const { toast } = useFeedback();
@@ -202,7 +202,7 @@ export default function BoardScreen() {
           )}
           contentContainerStyle={[
             styles.listContent,
-            { paddingBottom: tabBarHeight + (canWrite ? 96 : Spacing.xxl) },
+            { paddingBottom: tabBarOverlap + (canWrite ? 96 : Spacing.xxl) },
           ]}
           ItemSeparatorComponent={() => <View style={styles.separator} />}
           onRefresh={() => fetchBoards(true)}
@@ -212,7 +212,7 @@ export default function BoardScreen() {
       )}
 
       {canWrite && (
-        <FAB onPress={() => router.push('/(tabs)/board/write')} label="글쓰기" bottom={tabBarHeight} />
+        <FAB onPress={() => router.push('/(tabs)/board/write')} label="글쓰기" />
       )}
     </View>
   );

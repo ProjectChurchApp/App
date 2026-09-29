@@ -4,7 +4,6 @@
 // 기도문과 댓글이 이 앱의 알맹이라, 둘 다 접지 않고 읽기 좋게 펼쳐둔다.
 // 가장 자주 누르는 "기도했어요"만 화면 하단에 고정한다.
 
-import { useBottomTabBarHeight } from '@react-navigation/bottom-tabs';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { ActivityIndicator, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, View } from 'react-native';
@@ -33,7 +32,6 @@ type PrayerDetail = PrayerItem;
 export function PrayerDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const insets = useSafeAreaInsets();
-  const tabBarHeight = useBottomTabBarHeight();
   const router = useRouter();
   const { user } = useAuth();
   const { toast, confirm } = useFeedback();
@@ -311,7 +309,6 @@ export function PrayerDetailScreen() {
         icon={prayer.hasPrayed ? 'hand-heart' : 'hand-heart-outline'}
         count={prayer.prayerCount}
         onPress={handlePray}
-        bottomInset={tabBarHeight}
       />
     </KeyboardAvoidingView>
   );

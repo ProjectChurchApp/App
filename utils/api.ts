@@ -103,6 +103,16 @@ api.interceptors.request.use(
   (error) => Promise.reject(error)
 );
 
+// ==================== 세션 만료 알림 ====================
+
+// 리프레시까지 실패하면 앱이 401 화면에 갇히므로,
+// AuthContext 가 등록한 콜백을 불러 로그인 화면으로 돌려보낸다.
+let sessionExpiredHandler: (() => void) | null = null;
+
+export const setSessionExpiredHandler = (fn: (() => void) | null) => {
+  sessionExpiredHandler = fn;
+};
+
 // ==================== 응답 인터셉터 ====================
 
 let isRefreshing = false;
@@ -153,6 +163,7 @@ api.interceptors.response.use(
         processQueue(e, null);
         isRefreshing = false;
         await clearTokens();
+        sessionExpiredHandler?.();
         return Promise.reject(e);
       }
     }

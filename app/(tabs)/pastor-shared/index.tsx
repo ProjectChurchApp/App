@@ -1,7 +1,6 @@
 // app/(tabs)/pastor-shared/index.tsx
 
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
-import { useBottomTabBarHeight } from '@react-navigation/bottom-tabs';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { useCallback, useState } from 'react';
 import { FlatList, StyleSheet, Text, View } from 'react-native';
@@ -15,6 +14,7 @@ import {
   ScreenHeader,
   SkeletonList,
   SurfaceCard,
+  useTabBarOverlap,
 } from '../../../components/ui/primitives';
 import { Palette, Spacing, Type } from '../../../constants/design';
 import { STATUS_META } from '../../../constants/prayerMeta';
@@ -25,7 +25,7 @@ import { formatDate } from '../../../utils/date';
 
 export default function PastorSharedScreen() {
   const insets = useSafeAreaInsets();
-  const tabBarHeight = useBottomTabBarHeight();
+  const tabBarOverlap = useTabBarOverlap();
   const router = useRouter();
   const { user } = useAuth();
   const { toast, confirm } = useFeedback();
@@ -107,7 +107,7 @@ export default function PastorSharedScreen() {
           keyExtractor={(item) => String(item.id)}
           contentContainerStyle={[
             styles.listContent,
-            { paddingBottom: tabBarHeight + Spacing.xxl },
+            { paddingBottom: tabBarOverlap + Spacing.xxl },
           ]}
           ItemSeparatorComponent={() => <View style={styles.separator} />}
           onRefresh={() => fetchPrayers(true)}

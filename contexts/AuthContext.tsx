@@ -29,6 +29,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     checkAuth();
   }, []);
 
+  // 토큰이 만료되어 재발급까지 실패하면 조용히 로그인 화면으로 돌려보낸다.
+  useEffect(() => {
+    api.setSessionExpiredHandler(() => {
+      AsyncStorage.setItem('wasLoggedOut', 'true').catch(() => {});
+      setUser(null);
+      setHasLoggedInBefore(true);
+    });
+    return () => api.setSessionExpiredHandler(null);
+  }, []);
+
   useEffect(() => {
     if (isLoading || hasLoggedInBefore === null) return;
 

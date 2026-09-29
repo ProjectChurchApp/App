@@ -2,7 +2,6 @@
 // 성도 전용: 목사님과 연결 요청
 
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
-import { useBottomTabBarHeight } from '@react-navigation/bottom-tabs';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { useCallback, useState } from 'react';
 import { FlatList, StyleSheet, Text, View } from 'react-native';
@@ -16,6 +15,7 @@ import {
   ScreenHeader,
   SkeletonList,
   SurfaceCard,
+  useTabBarOverlap,
 } from '../../../components/ui/primitives';
 import { ICON_SM, Palette, Radius, Spacing, Type } from '../../../constants/design';
 import { useAuth } from '../../../contexts/AuthContext';
@@ -42,7 +42,7 @@ const STATUS_TONE: Record<ConnectionStatus, { label: string; fg: string; bg: str
 
 export default function ConnectScreen() {
   const insets = useSafeAreaInsets();
-  const tabBarHeight = useBottomTabBarHeight();
+  const tabBarOverlap = useTabBarOverlap();
   const router = useRouter();
   const { user } = useAuth();
   const { toast } = useFeedback();
@@ -144,7 +144,7 @@ export default function ConnectScreen() {
           keyExtractor={(item) => item.loginID}
           contentContainerStyle={[
             styles.listContent,
-            { paddingBottom: tabBarHeight + Spacing.xxl },
+            { paddingBottom: tabBarOverlap + Spacing.xxl },
           ]}
           ItemSeparatorComponent={() => <View style={styles.separator} />}
           renderItem={({ item }) => (

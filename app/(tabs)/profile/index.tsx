@@ -1,19 +1,18 @@
 // app/(tabs)/profile/index.tsx
 
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
-import { useBottomTabBarHeight } from '@react-navigation/bottom-tabs';
 import { useRouter } from 'expo-router';
 import { ActivityIndicator, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useFeedback } from '../../../components/ui/Feedback';
-import { AppButton, Avatar, Chip, Divider, IconButton } from '../../../components/ui/primitives';
+import { AppButton, Avatar, Chip, Divider, IconButton, useTabBarOverlap } from '../../../components/ui/primitives';
 import { ICON_SM, Palette, Radius, Spacing, Type } from '../../../constants/design';
 import { useAuth } from '../../../contexts/AuthContext';
 
 export default function ProfileScreen() {
   const { user, logout, isLoading } = useAuth();
   const insets = useSafeAreaInsets();
-  const tabBarHeight = useBottomTabBarHeight();
+  const tabBarOverlap = useTabBarOverlap();
   const router = useRouter();
   const { confirm } = useFeedback();
 
@@ -51,7 +50,7 @@ export default function ProfileScreen() {
       </View>
 
       <ScrollView
-        contentContainerStyle={[styles.content, { paddingBottom: tabBarHeight + Spacing.xxxl }]}
+        contentContainerStyle={[styles.content, { paddingBottom: tabBarOverlap + Spacing.xxxl }]}
         showsVerticalScrollIndicator={false}
       >
         <View style={styles.identity}>

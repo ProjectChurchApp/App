@@ -1,7 +1,6 @@
 // app/(tabs)/my-prayer/index.tsx
 
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
-import { useBottomTabBarHeight } from '@react-navigation/bottom-tabs';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { useCallback, useMemo, useState } from 'react';
 import {
@@ -24,11 +23,12 @@ import {
   Avatar,
   Chip,
   EmptyState,
-  FilterTabs,
   FAB,
+  FilterTabs,
   ScreenHeader,
   SkeletonList,
   SurfaceCard,
+  useTabBarOverlap,
 } from '../../../components/ui/primitives';
 
 type StatusFilter = 'ALL' | PrayerStatus;
@@ -98,7 +98,7 @@ function PrayerCard({
 // ─── 메인 화면 ───────────────────────────────────────────
 export default function MyPrayerScreen() {
   const insets = useSafeAreaInsets();
-  const tabBarHeight = useBottomTabBarHeight();
+  const tabBarOverlap = useTabBarOverlap();
   const router = useRouter();
   const { user } = useAuth();
   const { toast } = useFeedback();
@@ -222,7 +222,7 @@ export default function MyPrayerScreen() {
           )}
           contentContainerStyle={[
             styles.listContent,
-            { paddingBottom: tabBarHeight + 96 },
+            { paddingBottom: tabBarOverlap + 96 },
           ]}
           ItemSeparatorComponent={() => <View style={styles.separator} />}
           onRefresh={() => fetchPrayers(true)}
@@ -234,7 +234,6 @@ export default function MyPrayerScreen() {
       <FAB
         onPress={() => router.push('/(tabs)/my-prayer/write' as any)}
         label="작성"
-        bottom={tabBarHeight}
       />
     </View>
   );

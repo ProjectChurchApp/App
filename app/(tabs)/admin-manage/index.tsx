@@ -1,8 +1,7 @@
 // app/(tabs)/admin-manage/index.tsx
 // 관리자 전용: 목사 가입 승인 관리
 
-import { useBottomTabBarHeight } from '@react-navigation/bottom-tabs';
-import { useFocusEffect } from 'expo-router';
+import { useFocusEffect, useRouter } from 'expo-router';
 import { useCallback, useState } from 'react';
 import { FlatList, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -14,6 +13,7 @@ import {
   ScreenHeader,
   SkeletonList,
   SurfaceCard,
+  useTabBarOverlap,
 } from '../../../components/ui/primitives';
 import { Palette, Spacing, Type } from '../../../constants/design';
 import { useAuth } from '../../../contexts/AuthContext';
@@ -23,7 +23,8 @@ import { formatDate } from '../../../utils/date';
 
 export default function AdminManageScreen() {
   const insets = useSafeAreaInsets();
-  const tabBarHeight = useBottomTabBarHeight();
+  const tabBarOverlap = useTabBarOverlap();
+  const router = useRouter();
   const { user } = useAuth();
   const { toast, confirm } = useFeedback();
 
@@ -85,7 +86,7 @@ export default function AdminManageScreen() {
             : '목사 가입 승인'
         }
         paddingTop={insets.top + Spacing.lg}
-        right={<Avatar name={user?.name} />}
+        right={<Avatar name={user?.name} onPress={() => router.push('/(tabs)/profile')} />}
       />
 
       {isLoading ? (
@@ -102,7 +103,7 @@ export default function AdminManageScreen() {
           keyExtractor={(item) => String(item.userId)}
           contentContainerStyle={[
             styles.listContent,
-            { paddingBottom: tabBarHeight + Spacing.xxl },
+            { paddingBottom: tabBarOverlap + Spacing.xxl },
           ]}
           ItemSeparatorComponent={() => <View style={styles.separator} />}
           onRefresh={fetchData}

@@ -1,7 +1,6 @@
 // app/(tabs)/pastor-manage/index.tsx
 // 목사 전용: 연결 요청 관리 + 내 성도 목록 통합
 
-import { useBottomTabBarHeight } from '@react-navigation/bottom-tabs';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { useCallback, useState } from 'react';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
@@ -13,6 +12,7 @@ import {
   ScreenHeader,
   SkeletonList,
   SurfaceCard,
+  useTabBarOverlap,
 } from '../../../components/ui/primitives';
 import { Palette, Radius, Spacing, Type } from '../../../constants/design';
 import { useAuth } from '../../../contexts/AuthContext';
@@ -21,7 +21,7 @@ import { api } from '../../../utils/api';
 
 export default function PastorManageScreen() {
   const insets = useSafeAreaInsets();
-  const tabBarHeight = useBottomTabBarHeight();
+  const tabBarOverlap = useTabBarOverlap();
   const router = useRouter();
   const { user } = useAuth();
   const { toast, confirm } = useFeedback();
@@ -98,7 +98,7 @@ export default function PastorManageScreen() {
         <ScrollView
           contentContainerStyle={[
             styles.scrollContent,
-            { paddingBottom: tabBarHeight + Spacing.xxl },
+            { paddingBottom: tabBarOverlap + Spacing.xxl },
           ]}
           showsVerticalScrollIndicator={false}
         >

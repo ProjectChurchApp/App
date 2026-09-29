@@ -3,6 +3,7 @@
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import { Tabs } from 'expo-router';
 import { Platform } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Palette } from '../../constants/design';
 import { useAuth } from '../../contexts/AuthContext';
 
@@ -18,6 +19,7 @@ function tabIcon(outline: IconName, filled: IconName) {
 }
 
 export default function TabLayout() {
+  const insets = useSafeAreaInsets();
   const { user } = useAuth();
   const isPastor = user?.role === '목사' && user?.accountStatus === 'ACTIVE';
   const isAdmin = user?.role === '관리자';
@@ -34,9 +36,10 @@ export default function TabLayout() {
           ios: { position: 'absolute', borderTopColor: Palette.outlineVariant },
           default: {
             borderTopColor: Palette.outlineVariant,
-            height: 64,
-            paddingTop: 7,
-            paddingBottom: 9,
+            // 제스처 바에 라벨이 붙지 않도록 안전영역만큼 띄운다
+            height: 62 + insets.bottom,
+            paddingTop: 8,
+            paddingBottom: insets.bottom + 10,
           },
         }),
       }}

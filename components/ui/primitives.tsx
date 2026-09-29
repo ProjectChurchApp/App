@@ -3,6 +3,7 @@
 // 칸 사이에는 선이 없다.
 
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
+import { useBottomTabBarHeight } from '@react-navigation/bottom-tabs';
 import { ReactNode, useEffect, useRef, useState } from 'react';
 import {
   Animated,
@@ -37,6 +38,16 @@ const t = (style: (typeof Type)[keyof typeof Type]): TextStyle => ({
   lineHeight: style.lineHeight,
   letterSpacing: style.letterSpacing,
 });
+
+/**
+ * 탭바가 콘텐츠 위를 덮는 만큼의 높이.
+ * iOS는 탭바를 absolute로 띄워 콘텐츠가 그 아래까지 흐르지만,
+ * 안드로이드는 콘텐츠 영역이 이미 탭바 위에서 끝나므로 더할 필요가 없다.
+ */
+export function useTabBarOverlap() {
+  const tabBarHeight = useBottomTabBarHeight();
+  return Platform.OS === 'ios' ? tabBarHeight : 0;
+}
 
 // ─── 칩 ──────────────────────────────────────────────────
 export function Chip({
@@ -148,16 +159,15 @@ export function BottomAction({
   icon,
   count,
   onPress,
-  bottomInset,
 }: {
   label: string;
   icon?: keyof typeof MaterialCommunityIcons.glyphMap;
   count?: number;
   onPress: () => void;
-  bottomInset: number;
 }) {
+  const overlap = useTabBarOverlap();
   return (
-    <View style={[styles.bottomBar, { paddingBottom: bottomInset + Spacing.lg }]}>
+    <View style={[styles.bottomBar, { paddingBottom: overlap + Spacing.lg }]}>
       <Pressable
         onPress={onPress}
         accessibilityRole="button"
@@ -185,13 +195,12 @@ export function FAB({
   onPress,
   label,
   icon = 'plus',
-  bottom,
 }: {
   onPress: () => void;
   label?: string;
   icon?: keyof typeof MaterialCommunityIcons.glyphMap;
-  bottom: number;
 }) {
+  const overlap = useTabBarOverlap();
   return (
     <Pressable
       onPress={onPress}
@@ -200,7 +209,7 @@ export function FAB({
       android_ripple={ripple('rgba(255,255,255,0.24)')}
       style={({ pressed }) => [
         styles.fab,
-        { bottom: bottom + Spacing.lg },
+        { bottom: overlap + Spacing.lg },
         label ? styles.fabExtended : styles.fabRound,
         pressed && Platform.OS !== 'android' && { opacity: 0.9 },
       ]}
@@ -659,14 +668,14 @@ const styles = StyleSheet.create({
 
   header: {
     flexDirection: 'row',
-    alignItems: 'flex-end',
+    alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: Spacing.xl,
-    paddingBottom: Spacing.lg,
+    paddingBottom: Spacing.md,
     gap: Spacing.sm,
   },
   headerText: { flexShrink: 1 },
-  headerTitle: { ...t(Type.headlineLarge), color: Palette.onSurface },
+  headerTitle: { ...t(Type.headlineSmall), color: Palette.onSurface },
   headerSubtitle: { ...t(Type.bodySmall), color: Palette.onSurfaceVariant, marginTop: 2 },
   headerGreeting: { ...t(Type.label), color: Palette.primary, marginBottom: 2 },
 
