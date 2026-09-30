@@ -127,7 +127,8 @@ export default function BoardDetailScreen() {
 
   if (!board) return null;
 
-  const canManage = !!user && (board.writerLoginID === user.loginID || isPastor);
+  // 요구사항상 목사님께 주어진 건 작성 권한과 성도 댓글 삭제뿐이므로 글은 작성자만 관리한다.
+  const canManage = board.writerLoginID === user?.loginID;
 
   return (
     <KeyboardAvoidingView
@@ -138,13 +139,20 @@ export default function BoardDetailScreen() {
       <View style={[styles.appBar, { paddingTop: insets.top + Spacing.xs }]}>
         <IconButton icon="arrow-left" label="목록으로" onPress={() => router.back()} tone={Palette.onSurface} />
         {canManage && (
-          <IconButton
-            icon="trash-can-outline"
-            label="삭제"
-            tone={Palette.danger}
-            onPress={handleDelete}
-            disabled={isDeleting}
-          />
+          <View style={styles.appBarActions}>
+            <IconButton
+              icon="pencil-outline"
+              label="수정"
+              onPress={() => router.push(`/(tabs)/board/write?id=${id}` as any)}
+            />
+            <IconButton
+              icon="trash-can-outline"
+              label="삭제"
+              tone={Palette.danger}
+              onPress={handleDelete}
+              disabled={isDeleting}
+            />
+          </View>
         )}
       </View>
 
@@ -210,6 +218,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.sm,
     paddingBottom: Spacing.xs,
   },
+  appBarActions: { flexDirection: 'row' },
 
   scrollView: { flex: 1 },
   scrollContent: { paddingBottom: Spacing.xxxl },
