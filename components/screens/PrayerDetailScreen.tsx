@@ -184,8 +184,14 @@ export function PrayerDetailScreen() {
   const isPromoted = prayer.boardStage === 'INTERCESSORY';
   const isOwner = prayer.writerLoginID === user?.loginID;
   const isPromotingPastor = isPastor && prayer.promotedByLoginID === user?.loginID;
-  const canManage = isPromoted ? isPromotingPastor : isOwner;
-  const canPromote = isPastor && prayer.boardStage === 'SHARED_WITH_PASTOR';
+  // 목사님 목록에는 자신과 연결된 성도의 글만 오므로, 공유 단계면 담당 목사님이다.
+  const isSharedWithMe = isPastor && prayer.boardStage === 'SHARED_WITH_PASTOR';
+
+  // 기도의 주인은 작성자다. 중보기도로 올라간 뒤에도 본인은 계속 손댈 수 있다.
+  const canEdit = isOwner || isSharedWithMe || isPromotingPastor;
+  // 여럿이 함께 기도하는 글이 한 사람 판단으로 사라지지 않도록 승격 후 삭제는 담당 목사님만.
+  const canDelete = isPromoted ? isPromotingPastor : isOwner;
+  const canPromote = isSharedWithMe;
 
   const statusMeta = STATUS_META[prayer.status];
 
@@ -197,25 +203,29 @@ export function PrayerDetailScreen() {
     >
       <View style={[styles.appBar, { paddingTop: insets.top + Spacing.xs }]}>
         <IconButton icon="arrow-left" label="목록으로" onPress={() => router.back()} tone={Palette.onSurface} />
-        {canManage && (
+        {(canEdit || canDelete) && (
           <View style={styles.appBarActions}>
-            <IconButton
-              icon="pencil-outline"
-              label="수정"
-              onPress={() => router.push(`/(tabs)/my-prayer/write?id=${id}`)}
-            />
-            <IconButton
-              icon="trash-can-outline"
-              label="삭제"
-              tone={Palette.danger}
-              onPress={handleDelete}
-              disabled={isDeleting}
-            />
+            {canEdit && (
+              <IconButton
+                icon="pencil-outline"
+                label="수정"
+                onPress={() => router.push(`/(tabs)/my-prayer/write?id=${id}`)}
+              />
+            )}
+            {canDelete && (
+              <IconButton
+                icon="trash-can-outline"
+                label="삭제"
+                tone={Palette.danger}
+                onPress={handleDelete}
+                disabled={isDeleting}
+              />
+            )}
           </View>
         )}
       </View>
 
-      {canManage && (
+      {canEdit && (
         <View style={styles.statusRow}>
           <SelectMenu
             label="기도 상태"
@@ -237,7 +247,7 @@ export function PrayerDetailScreen() {
         {/* 기도문 */}
         <View style={styles.pad}>
           <View style={styles.chipRow}>
-            {!canManage && <Chip tone={statusMeta} />}
+            {!canEdit && <Chip tone={statusMeta} />}
             <Chip tone={visibilityMeta(prayer)} />
             {prayer.statusChangedAt && prayer.status !== 'PRAYING' && (
               <Text style={styles.statusDate}>{formatDateOnly(prayer.statusChangedAt)}</Text>

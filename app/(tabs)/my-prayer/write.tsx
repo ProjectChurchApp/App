@@ -19,6 +19,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { errorMessage, useFeedback } from '../../../components/ui/Feedback';
 import { AppButton } from '../../../components/ui/primitives';
 import { Palette, Radius, Spacing, Type } from '../../../constants/design';
+import { useAuth } from '../../../contexts/AuthContext';
 import { Connection } from '../../../types/connection';
 import { api } from '../../../utils/api';
 
@@ -62,6 +63,7 @@ export default function MyPrayerWriteScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const { toast, confirm } = useFeedback();
+  const { user } = useAuth();
 
   const [title, setTitle] = useState('');
   const [contents, setContents] = useState('');
@@ -69,6 +71,7 @@ export default function MyPrayerWriteScreen() {
   const [isLoading, setIsLoading] = useState(false);
   const [isFetching, setIsFetching] = useState(isEditMode);
   const [connection, setConnection] = useState<Connection | null>(null);
+  const [writerLoginID, setWriterLoginID] = useState<string | null>(null);
 
   const contentWidth = Math.min(width * 0.95, 680);
   const hasApprovedPastor = connection?.status === 'APPROVED';
@@ -105,6 +108,7 @@ export default function MyPrayerWriteScreen() {
         const res = await api.get(`/prayer/${id}`);
         setTitle(res.data.title);
         setContents(res.data.contents);
+        setWriterLoginID(res.data.writerLoginID);
         setChoice(
           res.data.visibility === 'PRIVATE'
             ? 'PRIVATE'
@@ -158,6 +162,9 @@ export default function MyPrayerWriteScreen() {
     }
   };
 
+  // 새 글이거나 내가 쓴 글일 때만 공개 범위를 고를 수 있다.
+  const isOwnPrayer = !isEditMode || writerLoginID === null || writerLoginID === user?.loginID;
+
   if (isFetching) {
     return (
       <View style={[styles.container, styles.centerBox, { paddingTop: insets.top }]}>
@@ -200,7 +207,8 @@ export default function MyPrayerWriteScreen() {
         showsVerticalScrollIndicator={false}
       >
         <View style={[styles.form, { width: contentWidth }]}>
-          {/* 공개 범위 */}
+          {/* 공개 범위 — 목사님이 성도 글을 다듬을 때는 바꿀 수 없다 */}
+          {isOwnPrayer && (
           <View style={styles.field}>
             <Text style={styles.label}>공개 범위</Text>
 
@@ -266,6 +274,7 @@ export default function MyPrayerWriteScreen() {
               </View>
             )}
           </View>
+          )}
 
           {/* 제목 */}
           <View style={styles.field}>
