@@ -72,6 +72,7 @@ export default function MyPrayerWriteScreen() {
   const [isFetching, setIsFetching] = useState(isEditMode);
   const [connection, setConnection] = useState<Connection | null>(null);
   const [writerLoginID, setWriterLoginID] = useState<string | null>(null);
+  const [isPromoted, setIsPromoted] = useState(false);
 
   const contentWidth = Math.min(width * 0.95, 680);
   const hasApprovedPastor = connection?.status === 'APPROVED';
@@ -109,6 +110,7 @@ export default function MyPrayerWriteScreen() {
         setTitle(res.data.title);
         setContents(res.data.contents);
         setWriterLoginID(res.data.writerLoginID);
+        setIsPromoted(res.data.boardStage === 'INTERCESSORY');
         setChoice(
           res.data.visibility === 'PRIVATE'
             ? 'PRIVATE'
@@ -162,8 +164,12 @@ export default function MyPrayerWriteScreen() {
     }
   };
 
-  // 새 글이거나 내가 쓴 글일 때만 공개 범위를 고를 수 있다.
+  // 공개 범위를 고를 수 있는 경우:
+  //  - 새 글이거나 내가 쓴 글이고 (목사님이 성도 글을 다듬을 때는 못 바꾼다)
+  //  - 아직 중보기도로 올라가지 않았을 때.
+  //    이미 올라간 글을 되돌리면 함께 기도하던 사람들 화면에서 사라지므로 잠근다.
   const isOwnPrayer = !isEditMode || writerLoginID === null || writerLoginID === user?.loginID;
+  const canChooseVisibility = isOwnPrayer && !isPromoted;
 
   if (isFetching) {
     return (
@@ -207,8 +213,21 @@ export default function MyPrayerWriteScreen() {
         showsVerticalScrollIndicator={false}
       >
         <View style={[styles.form, { width: contentWidth }]}>
-          {/* 공개 범위 — 목사님이 성도 글을 다듬을 때는 바꿀 수 없다 */}
-          {isOwnPrayer && (
+          {/* 공개 범위 */}
+          {isPromoted && (
+            <View style={styles.hint}>
+              <MaterialCommunityIcons
+                name="bullhorn-outline"
+                size={15}
+                color={Palette.onWarningContainer}
+              />
+              <Text style={styles.hintText}>
+                중보기도 게시판에 올라간 기도예요. 공개 범위는 바꿀 수 없고, 제목과 내용만 고칠 수 있어요.
+              </Text>
+            </View>
+          )}
+
+          {canChooseVisibility && (
           <View style={styles.field}>
             <Text style={styles.label}>공개 범위</Text>
 
