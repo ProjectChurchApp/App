@@ -4,7 +4,7 @@
 // 기도문과 댓글이 이 앱의 알맹이라, 둘 다 접지 않고 읽기 좋게 펼쳐둔다.
 // 가장 자주 누르는 "기도했어요"만 화면 하단에 고정한다.
 
-import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter, useSegments } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { ActivityIndicator, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -33,8 +33,14 @@ export function PrayerDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const insets = useSafeAreaInsets();
   const router = useRouter();
+  const segments = useSegments();
   const { user } = useAuth();
   const { toast, confirm } = useFeedback();
+
+  // 수정 화면은 지금 보고 있는 탭 안에서 열어야 한다.
+  // 항상 my-prayer로 보내면 다른 탭에서 열었을 때 나의기도 스택에 수정 화면이 쌓여
+  // 나중에 그 탭으로 돌아왔을 때 수정 화면이 먼저 보인다.
+  const currentTab = (segments as string[])[1] ?? 'my-prayer';
 
   const [prayer, setPrayer] = useState<PrayerDetail | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -209,7 +215,7 @@ export function PrayerDetailScreen() {
               <IconButton
                 icon="pencil-outline"
                 label="수정"
-                onPress={() => router.push(`/(tabs)/my-prayer/write?id=${id}`)}
+                onPress={() => router.push(`/(tabs)/${currentTab}/write?id=${id}` as any)}
               />
             )}
             {canDelete && (
