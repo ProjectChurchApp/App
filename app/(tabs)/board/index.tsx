@@ -88,7 +88,7 @@ export default function BoardScreen() {
   const [searchKeyword, setSearchKeyword] = useState('');
   const [searchType, setSearchType] = useState<'title' | 'writer'>('title');
 
-  const canWrite = user?.role === '목사';
+  const canWrite = user?.role === '목사' || user?.role === '관리자';
   const unreadCount = allBoards.filter((b) => b.status === 'UNREAD').length;
 
   const visibleBoards = useMemo(() => {

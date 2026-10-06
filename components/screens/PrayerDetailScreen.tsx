@@ -5,7 +5,7 @@
 // 가장 자주 누르는 "기도했어요"만 화면 하단에 고정한다.
 
 import { useLocalSearchParams, useRouter, useSegments } from 'expo-router';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Palette, Spacing, Type } from '../../constants/design';
@@ -36,6 +36,7 @@ export function PrayerDetailScreen() {
   const segments = useSegments();
   const { user } = useAuth();
   const { toast, confirm } = useFeedback();
+  const scrollRef = useRef<ScrollView>(null);
 
   // 수정 화면은 지금 보고 있는 탭 안에서 열어야 한다.
   // 항상 my-prayer로 보내면 다른 탭에서 열었을 때 나의기도 스택에 수정 화면이 쌓여
@@ -54,6 +55,7 @@ export function PrayerDetailScreen() {
   const [editingComment, setEditingComment] = useState<CommentItem | null>(null);
 
   const isPastor = user?.role === '목사';
+  const isAdmin = user?.role === '관리자';
 
   const fetchData = async () => {
     try {
@@ -194,9 +196,9 @@ export function PrayerDetailScreen() {
   const isSharedWithMe = isPastor && prayer.boardStage === 'SHARED_WITH_PASTOR';
 
   // 기도의 주인은 작성자다. 중보기도로 올라간 뒤에도 본인은 계속 손댈 수 있다.
-  const canEdit = isOwner || isSharedWithMe || isPromotingPastor;
+  const canEdit = isOwner || isSharedWithMe || isPromotingPastor || isAdmin;
   // 여럿이 함께 기도하는 글이 한 사람 판단으로 사라지지 않도록 승격 후 삭제는 담당 목사님만.
-  const canDelete = isPromoted ? isPromotingPastor : isOwner;
+  const canDelete = isAdmin || (isPromoted ? isPromotingPastor : isOwner);
   const canPromote = isSharedWithMe;
 
   const statusMeta = STATUS_META[prayer.status];
@@ -245,6 +247,7 @@ export function PrayerDetailScreen() {
       )}
 
       <ScrollView
+        ref={scrollRef}
         style={styles.scrollView}
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
@@ -298,7 +301,7 @@ export function PrayerDetailScreen() {
           <CommentList
             comments={comments}
             currentLoginID={user?.loginID ?? ''}
-            isPastor={isPastor}
+            isPastor={isPastor || isAdmin}
             onEdit={(comment) => {
               setEditingComment(comment);
               setCommentText(comment.contents);
@@ -316,6 +319,9 @@ export function PrayerDetailScreen() {
               setEditingComment(null);
               setCommentText('');
             }}
+            onFocus={() =>
+              setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 300)
+            }
           />
         </View>
       </ScrollView>

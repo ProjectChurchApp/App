@@ -1,7 +1,7 @@
 // app/(tabs)/board/[id].tsx
 
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   KeyboardAvoidingView,
@@ -30,6 +30,7 @@ export default function BoardDetailScreen() {
   const router = useRouter();
   const { user } = useAuth();
   const { toast, confirm } = useFeedback();
+  const scrollRef = useRef<ScrollView>(null);
 
   const [board, setBoard] = useState<BoardDetail | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -41,6 +42,7 @@ export default function BoardDetailScreen() {
   const [editingComment, setEditingComment] = useState<CommentItem | null>(null);
 
   const isPastor = user?.role === '목사';
+  const isAdmin = user?.role === '관리자';
 
   useEffect(() => {
     const fetchBoard = async () => {
@@ -127,8 +129,8 @@ export default function BoardDetailScreen() {
 
   if (!board) return null;
 
-  // 요구사항상 목사님께 주어진 건 작성 권한과 성도 댓글 삭제뿐이므로 글은 작성자만 관리한다.
-  const canManage = board.writerLoginID === user?.loginID;
+  // 글은 작성자만 관리한다. 관리자는 운영을 위해 예외로 모든 글을 정리할 수 있다.
+  const canManage = board.writerLoginID === user?.loginID || user?.role === '관리자';
 
   return (
     <KeyboardAvoidingView
@@ -157,6 +159,7 @@ export default function BoardDetailScreen() {
       </View>
 
       <ScrollView
+        ref={scrollRef}
         style={styles.scrollView}
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
@@ -182,7 +185,7 @@ export default function BoardDetailScreen() {
           <CommentList
             comments={comments}
             currentLoginID={user?.loginID ?? ''}
-            isPastor={isPastor}
+            isPastor={isPastor || isAdmin}
             onEdit={(comment) => {
               setEditingComment(comment);
               setCommentText(comment.contents);
@@ -200,6 +203,9 @@ export default function BoardDetailScreen() {
               setEditingComment(null);
               setCommentText('');
             }}
+            onFocus={() =>
+              setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 300)
+            }
           />
         </View>
       </ScrollView>

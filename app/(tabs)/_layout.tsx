@@ -55,7 +55,8 @@ export default function TabLayout() {
       <Tabs.Screen
         name="my-prayer"
         options={{
-          href: isPastor ? null : undefined,
+          // 관리자는 개인 기도를 쓰지 않는다 (교회 요청)
+          href: isPastor || isAdmin ? null : undefined,
           title: '나의기도',
           tabBarIcon: tabIcon('hands-pray', 'hands-pray'),
         }}

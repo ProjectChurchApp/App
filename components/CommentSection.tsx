@@ -55,6 +55,8 @@ interface CommentInputBarProps {
   isSubmitting: boolean;
   onSubmit: () => void;
   onCancelEdit: () => void;
+  /** 자판이 올라올 때 입력창이 가리지 않도록 화면을 끝까지 내려달라는 신호 */
+  onFocus?: () => void;
 }
 
 export function CommentInputBar({
@@ -64,6 +66,7 @@ export function CommentInputBar({
   isSubmitting,
   onSubmit,
   onCancelEdit,
+  onFocus,
 }: CommentInputBarProps) {
   const canSubmit = commentText.trim().length > 0 && !isSubmitting;
 
@@ -88,6 +91,7 @@ export function CommentInputBar({
           placeholderTextColor={Palette.disabled}
           multiline
           maxLength={500}
+          onFocus={onFocus}
         />
         <Pressable
           onPress={onSubmit}

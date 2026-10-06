@@ -15,3 +15,12 @@ export interface PastorRequest {
   name: string;
   requestedAt: string;
 }
+
+export interface UserSummary {
+  userId: number;
+  loginID: string;
+  name: string;
+  role: Role;
+  accountStatus: AccountStatus | 'SUSPENDED';
+  createdAt: string;
+}

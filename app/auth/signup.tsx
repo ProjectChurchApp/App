@@ -7,12 +7,14 @@ import {
   ScrollView,
   StyleSheet,
   Text,
+  Pressable,
   TextInput,
   TouchableOpacity,
   useWindowDimensions,
   View,
 } from 'react-native';
 import { Role } from '../../types/user';
+import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import { useFeedback } from '../../components/ui/Feedback';
 import { Palette } from '../../constants/design';
 
@@ -31,6 +33,7 @@ export default function SignupScreen() {
   const [role, setRole] = useState<Extract<Role, '목사' | '성도'>>('성도');
   const [isLoading, setIsLoading] = useState(false);
   const { toast } = useFeedback();
+  const [showPassword, setShowPassword] = useState(false);
 
   // 반응형: 최대 너비 제한
   const formWidth = Math.min(width * 0.9, 440);
@@ -123,27 +126,44 @@ export default function SignupScreen() {
 
               {/* 비밀번호 */}
               <View>
-                <TextInput
-                  style={styles.input}
-                  placeholder="비밀번호"
-                  placeholderTextColor="#999"
-                  value={password}
-                  onChangeText={setPassword}
-                  secureTextEntry
-                />
+                <View style={styles.passwordRow}>
+                  <TextInput
+                    style={styles.passwordInput}
+                    placeholder="비밀번호"
+                    placeholderTextColor="#999"
+                    value={password}
+                    onChangeText={setPassword}
+                    secureTextEntry={!showPassword}
+                    autoCapitalize="none"
+                  />
+                  <Pressable
+                    onPress={() => setShowPassword((prev) => !prev)}
+                    hitSlop={8}
+                    accessibilityRole="button"
+                    accessibilityLabel={showPassword ? '비밀번호 숨기기' : '비밀번호 표시'}
+                    style={styles.eyeButton}
+                  >
+                    <MaterialCommunityIcons
+                      name={showPassword ? 'eye-off-outline' : 'eye-outline'}
+                      size={20}
+                      color={Palette.onSurfaceVariant}
+                    />
+                  </Pressable>
+                </View>
                 <Text style={styles.passwordHint}>
                   8자 이상, 영문·숫자·특수문자(@$!%*#?&) 포함
                 </Text>
               </View>
 
-              {/* 비밀번호 확인 */}
+              {/* 비밀번호 확인 — 표시 여부는 위 눈 아이콘을 따라간다 */}
               <TextInput
                 style={styles.input}
                 placeholder="비밀번호 확인"
                 placeholderTextColor="#999"
                 value={confirmPassword}
                 onChangeText={setConfirmPassword}
-                secureTextEntry
+                secureTextEntry={!showPassword}
+                autoCapitalize="none"
               />
 
               <TouchableOpacity
@@ -218,6 +238,28 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#999999',
     marginTop: 8,
+  },
+  passwordRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#DDDDDD',
+    borderRadius: 8,
+    backgroundColor: '#F9F9F9',
+    paddingRight: 6,
+  },
+  passwordInput: {
+    flex: 1,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    fontSize: 16,
+    color: Palette.onSurface,
+  },
+  eyeButton: {
+    width: 36,
+    height: 36,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   passwordHint: {
     fontSize: 12,

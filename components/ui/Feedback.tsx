@@ -26,6 +26,8 @@ type ConfirmOptions = {
   confirmLabel?: string;
   cancelLabel?: string;
   destructive?: boolean;
+  /** 되돌릴 선택지가 없는 안내창. 취소 버튼을 감춘다. */
+  hideCancel?: boolean;
 };
 
 type FeedbackApi = {
@@ -127,11 +129,13 @@ export function FeedbackProvider({ children }: { children: ReactNode }) {
               <Text style={styles.dialogMessage}>{confirmState.message}</Text>
             )}
             <View style={styles.dialogActions}>
-              <AppButton
-                label={confirmState?.cancelLabel ?? '취소'}
-                variant="text"
-                onPress={() => settle(false)}
-              />
+              {!confirmState?.hideCancel && (
+                <AppButton
+                  label={confirmState?.cancelLabel ?? '취소'}
+                  variant="text"
+                  onPress={() => settle(false)}
+                />
+              )}
               <AppButton
                 label={confirmState?.confirmLabel ?? '확인'}
                 variant={confirmState?.destructive ? 'danger' : 'filled'}
