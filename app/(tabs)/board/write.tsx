@@ -30,7 +30,8 @@ export default function BoardWriteScreen() {
   const { user } = useAuth();
   const { toast } = useFeedback();
 
-  const isPastor = user?.role === '목사';
+  // 게시판은 목사님이 쓰는 공지지만, 관리자는 운영을 위해 함께 쓰고 고칠 수 있다.
+  const canWrite = user?.role === '목사' || user?.role === '관리자';
 
   const [title, setTitle] = useState('');
   const [contents, setContents] = useState('');
@@ -40,14 +41,14 @@ export default function BoardWriteScreen() {
   const contentWidth = Math.min(width * 0.95, 680);
 
   useEffect(() => {
-    if (!isPastor) {
-      toast('게시글은 목사님만 작성할 수 있어요.', 'error');
+    if (!canWrite) {
+      toast('게시글은 목사님과 관리자만 작성할 수 있어요.', 'error');
       router.back();
     }
-  }, [isPastor]);
+  }, [canWrite]);
 
   useEffect(() => {
-    if (!isEditMode || !isPastor) return;
+    if (!isEditMode || !canWrite) return;
 
     const fetchExisting = async () => {
       try {
@@ -63,7 +64,7 @@ export default function BoardWriteScreen() {
     };
 
     fetchExisting();
-  }, [id, isPastor]);
+  }, [id, canWrite]);
 
   const handleSubmit = async () => {
     if (!title.trim()) {
@@ -94,7 +95,7 @@ export default function BoardWriteScreen() {
     }
   };
 
-  if (!isPastor) return null;
+  if (!canWrite) return null;
 
   if (isFetching) {
     return (
