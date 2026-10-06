@@ -21,6 +21,6 @@ export interface UserSummary {
   loginID: string;
   name: string;
   role: Role;
-  accountStatus: AccountStatus | 'SUSPENDED';
+  accountStatus: AccountStatus | 'SUSPENDED' | 'WITHDRAWN';
   createdAt: string;
 }
