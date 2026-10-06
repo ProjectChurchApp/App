@@ -38,7 +38,6 @@ const STATUS_TONE: Record<string, { label: string; fg: string; bg: string }> = {
     bg: Palette.warningContainer,
   },
   REJECTED: { label: '거절됨', fg: Palette.onSurfaceVariant, bg: Palette.surfaceVariant },
-  SUSPENDED: { label: '정지됨', fg: Palette.onDangerContainer, bg: Palette.dangerContainer },
   WITHDRAWN: { label: '탈퇴함', fg: Palette.onSurfaceVariant, bg: Palette.surfaceVariant },
 };
 
@@ -169,32 +168,6 @@ export default function AdminManageScreen() {
     }
   };
 
-  // ── 계정 정지 / 해제 ──────────────────────────────────
-  const handleToggleSuspend = async (target: UserSummary) => {
-    const suspended = target.accountStatus === 'SUSPENDED';
-
-    if (!suspended) {
-      const ok = await confirm({
-        title: `${target.name}님의 계정을 정지할까요?`,
-        message: '로그인만 막힙니다. 작성한 기도와 댓글은 그대로 남고, 나중에 되돌릴 수 있어요.',
-        confirmLabel: '정지',
-        destructive: true,
-      });
-      if (!ok) return;
-    }
-
-    setProcessingID(target.userId);
-    try {
-      await api.patch(`/admin/users/${target.userId}/${suspended ? 'activate' : 'suspend'}`);
-      await fetchData();
-      toast(suspended ? '정지를 해제했어요.' : '계정을 정지했어요.', 'success');
-    } catch (e: any) {
-      toast(errorMessage(e), 'error');
-    } finally {
-      setProcessingID(null);
-    }
-  };
-
   return (
     <View style={styles.container}>
       <ScreenHeader
@@ -275,8 +248,6 @@ export default function AdminManageScreen() {
           ) : (
             <View style={styles.cards}>
               {visibleUsers.map((item) => {
-                const suspended = item.accountStatus === 'SUSPENDED';
-                const withdrawn = item.accountStatus === 'WITHDRAWN';
                 const isSelf = item.loginID === user?.loginID;
 
                 return (
@@ -303,33 +274,23 @@ export default function AdminManageScreen() {
                       )}
                     </View>
 
-                    {!isSelf && !withdrawn && (
-                      <>
-                        <View style={styles.actions}>
-                          <AppButton
-                            label="비번 초기화"
-                            variant="outlined"
-                            onPress={() => handleResetPassword(item)}
-                            disabled={processingID === item.userId}
-                            style={styles.actionButton}
-                          />
-                          <AppButton
-                            label={suspended ? '정지 해제' : '계정 정지'}
-                            variant={suspended ? 'tonal' : 'danger'}
-                            onPress={() => handleToggleSuspend(item)}
-                            loading={processingID === item.userId}
-                            style={styles.actionButton}
-                          />
-                        </View>
+                    {!isSelf && (
+                      <View style={styles.actions}>
                         <AppButton
-                          label="탈퇴 처리 (아이디 비우기)"
-                          icon="account-off-outline"
-                          variant="text"
-                          fullWidth
-                          onPress={() => handleWithdraw(item)}
+                          label="비번 초기화"
+                          variant="outlined"
+                          onPress={() => handleResetPassword(item)}
                           disabled={processingID === item.userId}
+                          style={styles.actionButton}
                         />
-                      </>
+                        <AppButton
+                          label="탈퇴 처리"
+                          variant="danger"
+                          onPress={() => handleWithdraw(item)}
+                          loading={processingID === item.userId}
+                          style={styles.actionButton}
+                        />
+                      </View>
                     )}
                   </SurfaceCard>
                 );
