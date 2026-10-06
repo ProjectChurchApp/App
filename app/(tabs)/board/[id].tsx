@@ -1,7 +1,7 @@
 // app/(tabs)/board/[id].tsx
 
-import { useLocalSearchParams, useRouter } from 'expo-router';
-import { useEffect, useRef, useState } from 'react';
+import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
+import { useCallback, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   KeyboardAvoidingView,
@@ -44,25 +44,28 @@ export default function BoardDetailScreen() {
   const isPastor = user?.role === '목사';
   const isAdmin = user?.role === '관리자';
 
-  useEffect(() => {
-    const fetchBoard = async () => {
-      try {
-        const [boardRes, commentsRes] = await Promise.all([
-          api.get<BoardDetail>(`/board/${id}`),
-          api.get<CommentItem[]>(`/comment/board/${id}`),
-        ]);
-        setBoard(boardRes.data);
-        setComments(commentsRes.data);
-      } catch (e: any) {
-        toast(errorMessage(e), 'error');
-        router.back();
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
-    fetchBoard();
+  const fetchBoard = useCallback(async () => {
+    try {
+      const [boardRes, commentsRes] = await Promise.all([
+        api.get<BoardDetail>(`/board/${id}`),
+        api.get<CommentItem[]>(`/comment/board/${id}`),
+      ]);
+      setBoard(boardRes.data);
+      setComments(commentsRes.data);
+    } catch (e: any) {
+      toast(errorMessage(e), 'error');
+      router.back();
+    } finally {
+      setIsLoading(false);
+    }
   }, [id]);
+
+  // 수정 화면에서 돌아왔을 때 바뀐 내용이 바로 보이도록 화면에 들어올 때마다 다시 읽는다.
+  useFocusEffect(
+    useCallback(() => {
+      fetchBoard();
+    }, [fetchBoard])
+  );
 
   const handleDelete = async () => {
     const ok = await confirm({

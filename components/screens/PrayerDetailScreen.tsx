@@ -4,8 +4,8 @@
 // 기도문과 댓글이 이 앱의 알맹이라, 둘 다 접지 않고 읽기 좋게 펼쳐둔다.
 // 가장 자주 누르는 "기도했어요"만 화면 하단에 고정한다.
 
-import { useLocalSearchParams, useRouter, useSegments } from 'expo-router';
-import { useEffect, useRef, useState } from 'react';
+import { useFocusEffect, useLocalSearchParams, useRouter, useSegments } from 'expo-router';
+import { useCallback, useRef, useState } from 'react';
 import { ActivityIndicator, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Palette, Spacing, Type } from '../../constants/design';
@@ -57,7 +57,7 @@ export function PrayerDetailScreen() {
   const isPastor = user?.role === '목사';
   const isAdmin = user?.role === '관리자';
 
-  const fetchData = async () => {
+  const fetchData = useCallback(async () => {
     try {
       const [prayerRes, commentsRes] = await Promise.all([
         api.get<PrayerDetail>(`/prayer/${id}`),
@@ -71,11 +71,14 @@ export function PrayerDetailScreen() {
     } finally {
       setIsLoading(false);
     }
-  };
-
-  useEffect(() => {
-    fetchData();
   }, [id]);
+
+  // 수정 화면에서 돌아왔을 때 바뀐 내용이 바로 보이도록 화면에 들어올 때마다 다시 읽는다.
+  useFocusEffect(
+    useCallback(() => {
+      fetchData();
+    }, [fetchData])
+  );
 
   const handleDelete = async () => {
     const ok = await confirm({
