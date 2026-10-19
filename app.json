@@ -10,7 +10,7 @@
     "newArchEnabled": true,
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.geonuk.churchapp",
+      "bundleIdentifier": "org.heartjesuschurch.prayer",
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false
       }
@@ -24,7 +24,7 @@
       "edgeToEdgeEnabled": true,
       "softwareKeyboardLayoutMode": "pan",
       "predictiveBackGestureEnabled": false,
-      "package": "com.geonuk.churchapp",
+      "package": "org.heartjesuschurch.prayer",
       "googleServicesFile": "./google-services.json", 
       "usesCleartextTraffic": true
     },
