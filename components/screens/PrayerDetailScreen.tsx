@@ -5,8 +5,9 @@
 // 가장 자주 누르는 "기도했어요"만 화면 하단에 고정한다.
 
 import { useFocusEffect, useLocalSearchParams, useRouter, useSegments } from 'expo-router';
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ActivityIndicator, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Palette, Spacing, Type } from '../../constants/design';
 import { STATUS_META, STATUS_ORDER, visibilityMeta } from '../../constants/prayerMeta';
@@ -15,6 +16,7 @@ import { CommentItem } from '../../types/comment';
 import { PrayerItem, PrayerStatus } from '../../types/prayer';
 import { api } from '../../utils/api';
 import { formatDateFull, formatDateOnly } from '../../utils/date';
+import { getPrayerOrder } from '../../utils/prayerNav';
 import { CommentInputBar, CommentList } from '../CommentSection';
 import { errorMessage, useFeedback } from '../ui/Feedback';
 import {
@@ -78,6 +80,53 @@ export function PrayerDetailScreen() {
     useCallback(() => {
       fetchData();
     }, [fetchData])
+  );
+
+  // ── 옆 기도로 넘어가기 ────────────────────────────────
+  // 목록으로 나갔다 다시 들어오지 않고도 다음 기도를 읽을 수 있게 한다.
+  const order = getPrayerOrder(currentTab);
+  const currentIndex = order.indexOf(Number(id));
+  const prevID = currentIndex > 0 ? order[currentIndex - 1] : null;
+  const nextID =
+    currentIndex >= 0 && currentIndex < order.length - 1 ? order[currentIndex + 1] : null;
+  const hasPager = currentIndex >= 0 && order.length > 1;
+
+  const goSibling = useCallback(
+    (targetID: number | null) => {
+      if (targetID == null) return;
+      // push가 아니라 replace라서, 여러 개를 넘겨본 뒤 뒤로가기를 눌러도
+      // 지나온 기도를 하나씩 되짚지 않고 목록으로 바로 돌아간다.
+      router.replace({
+        pathname: `/(tabs)/${currentTab}/[id]`,
+        params: { id: targetID },
+      } as any);
+    },
+    [router, currentTab]
+  );
+
+  // 옆 기도로 넘어가면 화면은 그대로 재사용되므로, 새 내용을 받아오기 전까지
+  // 직전 기도의 글과 댓글이 남아 보인다. 그래서 id가 바뀌면 비우고 맨 위로 올린다.
+  useEffect(() => {
+    setIsLoading(true);
+    setPrayer(null);
+    setComments([]);
+    setCommentText('');
+    setEditingComment(null);
+    scrollRef.current?.scrollTo({ y: 0, animated: false });
+  }, [id]);
+
+  const swipeGesture = useMemo(
+    () =>
+      Gesture.Pan()
+        // 가로로 충분히 움직였을 때만 반응하고, 세로가 먼저면 스크롤에 양보한다.
+        .activeOffsetX([-24, 24])
+        .failOffsetY([-20, 20])
+        .runOnJS(true)
+        .onEnd((e) => {
+          if (e.translationX <= -60) goSibling(nextID);
+          else if (e.translationX >= 60) goSibling(prevID);
+        }),
+    [goSibling, nextID, prevID]
   );
 
   const handleDelete = async () => {
@@ -213,27 +262,51 @@ export function PrayerDetailScreen() {
       keyboardVerticalOffset={insets.top}
     >
       <View style={[styles.appBar, { paddingTop: insets.top + Spacing.xs }]}>
-        <IconButton icon="arrow-left" label="목록으로" onPress={() => router.back()} tone={Palette.onSurface} />
-        {(canEdit || canDelete) && (
-          <View style={styles.appBarActions}>
-            {canEdit && (
+        <View style={styles.appBarSide}>
+          <IconButton icon="arrow-left" label="목록으로" onPress={() => router.back()} tone={Palette.onSurface} />
+        </View>
+
+        {/* 쓸어 넘기는 동작은 눈에 보이지 않으므로, 몇 번째인지와 앞뒤 버튼을 같이 둔다. */}
+        <View style={styles.pager}>
+          {hasPager && (
+            <>
               <IconButton
-                icon="pencil-outline"
-                label="수정"
-                onPress={() => router.push(`/(tabs)/${currentTab}/write?id=${id}` as any)}
+                icon="chevron-left"
+                label="이전 기도"
+                onPress={() => goSibling(prevID)}
+                disabled={prevID == null}
               />
-            )}
-            {canDelete && (
+              <Text style={styles.pagerText}>
+                {currentIndex + 1} / {order.length}
+              </Text>
               <IconButton
-                icon="trash-can-outline"
-                label="삭제"
-                tone={Palette.danger}
-                onPress={handleDelete}
-                disabled={isDeleting}
+                icon="chevron-right"
+                label="다음 기도"
+                onPress={() => goSibling(nextID)}
+                disabled={nextID == null}
               />
-            )}
-          </View>
-        )}
+            </>
+          )}
+        </View>
+
+        <View style={[styles.appBarSide, styles.appBarActions]}>
+          {canEdit && (
+            <IconButton
+              icon="pencil-outline"
+              label="수정"
+              onPress={() => router.push(`/(tabs)/${currentTab}/write?id=${id}` as any)}
+            />
+          )}
+          {canDelete && (
+            <IconButton
+              icon="trash-can-outline"
+              label="삭제"
+              tone={Palette.danger}
+              onPress={handleDelete}
+              disabled={isDeleting}
+            />
+          )}
+        </View>
       </View>
 
       {canEdit && (
@@ -249,85 +322,87 @@ export function PrayerDetailScreen() {
         </View>
       )}
 
-      <ScrollView
-        ref={scrollRef}
-        style={styles.scrollView}
-        contentContainerStyle={styles.scrollContent}
-        showsVerticalScrollIndicator={false}
-        keyboardShouldPersistTaps="handled"
-      >
-        {/* 기도문 */}
-        <View style={styles.pad}>
-          <View style={styles.chipRow}>
-            {!canEdit && <Chip tone={statusMeta} />}
-            <Chip tone={visibilityMeta(prayer)} />
-            {prayer.statusChangedAt && prayer.status !== 'PRAYING' && (
-              <Text style={styles.statusDate}>{formatDateOnly(prayer.statusChangedAt)}</Text>
-            )}
+      <GestureDetector gesture={swipeGesture}>
+        <ScrollView
+          ref={scrollRef}
+          style={styles.scrollView}
+          contentContainerStyle={styles.scrollContent}
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+        >
+          {/* 기도문 */}
+          <View style={styles.pad}>
+            <View style={styles.chipRow}>
+              {!canEdit && <Chip tone={statusMeta} />}
+              <Chip tone={visibilityMeta(prayer)} />
+              {prayer.statusChangedAt && prayer.status !== 'PRAYING' && (
+                <Text style={styles.statusDate}>{formatDateOnly(prayer.statusChangedAt)}</Text>
+              )}
+            </View>
+
+            <Text style={styles.title}>{prayer.title}</Text>
+
+            <View style={styles.meta}>
+              <Avatar name={prayer.writerName} size={36} />
+              <View style={styles.metaText}>
+                <Text style={styles.writerName}>
+                  {isPromoted ? `기도요청자 ${prayer.writerName}` : prayer.writerName}
+                </Text>
+                <Text style={styles.createdDate}>{formatDateFull(prayer.createdDate)}</Text>
+              </View>
+            </View>
+
+            <Text style={styles.body}>{prayer.contents}</Text>
           </View>
 
-          <Text style={styles.title}>{prayer.title}</Text>
+          {canPromote && (
+            <>
+              <Divider style={styles.hr} />
+              <View style={styles.pad}>
+                <AppButton
+                  label="중보기도로 공유"
+                  icon="bullhorn-outline"
+                  variant="tonal"
+                  fullWidth
+                  onPress={handlePromote}
+                  loading={isPromoting}
+                />
+              </View>
+            </>
+          )}
 
-          <View style={styles.meta}>
-            <Avatar name={prayer.writerName} size={36} />
-            <View style={styles.metaText}>
-              <Text style={styles.writerName}>
-                {isPromoted ? `기도요청자 ${prayer.writerName}` : prayer.writerName}
-              </Text>
-              <Text style={styles.createdDate}>{formatDateFull(prayer.createdDate)}</Text>
-            </View>
+          <Divider style={styles.hr} />
+
+          {/* 댓글 */}
+          <View style={styles.pad}>
+            <CommentList
+              comments={comments}
+              currentLoginID={user?.loginID ?? ''}
+              isPastor={isPastor || isAdmin}
+              onEdit={(comment) => {
+                setEditingComment(comment);
+                setCommentText(comment.contents);
+              }}
+              onDelete={handleDeleteComment}
+            />
+
+            <CommentInputBar
+              commentText={commentText}
+              onChangeText={setCommentText}
+              editingComment={editingComment}
+              isSubmitting={isSubmitting}
+              onSubmit={handleSubmitComment}
+              onCancelEdit={() => {
+                setEditingComment(null);
+                setCommentText('');
+              }}
+              onFocus={() =>
+                setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 300)
+              }
+            />
           </View>
-
-          <Text style={styles.body}>{prayer.contents}</Text>
-        </View>
-
-        {canPromote && (
-          <>
-            <Divider style={styles.hr} />
-            <View style={styles.pad}>
-              <AppButton
-                label="중보기도로 공유"
-                icon="bullhorn-outline"
-                variant="tonal"
-                fullWidth
-                onPress={handlePromote}
-                loading={isPromoting}
-              />
-            </View>
-          </>
-        )}
-
-        <Divider style={styles.hr} />
-
-        {/* 댓글 */}
-        <View style={styles.pad}>
-          <CommentList
-            comments={comments}
-            currentLoginID={user?.loginID ?? ''}
-            isPastor={isPastor || isAdmin}
-            onEdit={(comment) => {
-              setEditingComment(comment);
-              setCommentText(comment.contents);
-            }}
-            onDelete={handleDeleteComment}
-          />
-
-          <CommentInputBar
-            commentText={commentText}
-            onChangeText={setCommentText}
-            editingComment={editingComment}
-            isSubmitting={isSubmitting}
-            onSubmit={handleSubmitComment}
-            onCancelEdit={() => {
-              setEditingComment(null);
-              setCommentText('');
-            }}
-            onFocus={() =>
-              setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 300)
-            }
-          />
-        </View>
-      </ScrollView>
+        </ScrollView>
+      </GestureDetector>
 
       <BottomAction
         label="기도했어요"
@@ -346,11 +421,21 @@ const styles = StyleSheet.create({
   appBar: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
     paddingHorizontal: Spacing.sm,
     paddingBottom: Spacing.xs,
   },
-  appBarActions: { flexDirection: 'row' },
+  // 가운데 쪽수가 한쪽으로 치우치지 않도록 좌우 폭을 같게 잡는다.
+  appBarSide: { flexDirection: 'row', alignItems: 'center', minWidth: 88 },
+  appBarActions: { justifyContent: 'flex-end' },
+
+  pager: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center' },
+  pagerText: {
+    minWidth: 44,
+    textAlign: 'center',
+    fontSize: Type.labelSmall.fontSize,
+    fontWeight: '600',
+    color: Palette.onSurfaceVariant,
+  },
 
   scrollView: { flex: 1 },
   scrollContent: { paddingBottom: Spacing.xxl },

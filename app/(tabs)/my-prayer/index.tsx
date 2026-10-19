@@ -18,6 +18,7 @@ import { useAuth } from '../../../contexts/AuthContext';
 import { PrayerItem, PrayerStatus } from '../../../types/prayer';
 import { api } from '../../../utils/api';
 import { formatDate, formatDateOnly } from '../../../utils/date';
+import { rememberPrayerOrder } from '../../../utils/prayerNav';
 import { errorMessage, useFeedback } from '../../../components/ui/Feedback';
 import {
   Avatar,
@@ -214,9 +215,11 @@ export default function MyPrayerScreen() {
           renderItem={({ item }) => (
             <PrayerCard
               item={item}
-              onPress={() =>
-                router.push({ pathname: '/(tabs)/my-prayer/[id]', params: { id: item.id } } as any)
-              }
+              onPress={() => {
+                // 상세에서 옆으로 쓸어 넘길 때 쓰도록, 지금 보이는 순서를 그대로 넘긴다.
+                rememberPrayerOrder('my-prayer', visiblePrayers.map((p) => p.id));
+                router.push({ pathname: '/(tabs)/my-prayer/[id]', params: { id: item.id } } as any);
+              }}
               onPray={() => handlePray(item.id)}
             />
           )}

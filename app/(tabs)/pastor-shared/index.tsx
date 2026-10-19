@@ -22,6 +22,7 @@ import { useAuth } from '../../../contexts/AuthContext';
 import { PrayerItem } from '../../../types/prayer';
 import { api } from '../../../utils/api';
 import { formatDate } from '../../../utils/date';
+import { rememberPrayerOrder } from '../../../utils/prayerNav';
 
 export default function PastorSharedScreen() {
   const insets = useSafeAreaInsets();
@@ -115,12 +116,14 @@ export default function PastorSharedScreen() {
           showsVerticalScrollIndicator={false}
           renderItem={({ item }) => (
             <SurfaceCard
-              onPress={() =>
+              onPress={() => {
+                // 상세에서 옆으로 쓸어 넘길 때 쓰도록, 지금 보이는 순서를 그대로 넘긴다.
+                rememberPrayerOrder('pastor-shared', prayers.map((p) => p.id));
                 router.push({
                   pathname: '/(tabs)/pastor-shared/[id]',
                   params: { id: item.id },
-                } as any)
-              }
+                } as any);
+              }}
             >
               <View style={styles.cardTop}>
                 <Text style={styles.cardTitle} numberOfLines={1}>

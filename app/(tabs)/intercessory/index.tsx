@@ -21,6 +21,7 @@ import { useAuth } from '../../../contexts/AuthContext';
 import { PrayerItem } from '../../../types/prayer';
 import { api } from '../../../utils/api';
 import { formatDate, formatDateOnly } from '../../../utils/date';
+import { rememberPrayerOrder } from '../../../utils/prayerNav';
 
 // ─── 카드 ────────────────────────────────────────────────
 function PrayerCard({
@@ -189,12 +190,14 @@ export default function IntercessoryScreen() {
           renderItem={({ item }) => (
             <PrayerCard
               item={item}
-              onPress={() =>
+              onPress={() => {
+                // 상세에서 옆으로 쓸어 넘길 때 쓰도록, 지금 보이는 순서를 그대로 넘긴다.
+                rememberPrayerOrder('intercessory', visiblePrayers.map((p) => p.id));
                 router.push({
                   pathname: '/(tabs)/intercessory/[id]',
                   params: { id: item.id },
-                } as any)
-              }
+                } as any);
+              }}
               onPray={() => handlePray(item.id)}
             />
           )}
